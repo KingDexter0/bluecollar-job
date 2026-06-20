@@ -1,0 +1,51 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      APP_PORT: 8080
+      DATABASE_URL: postgres://bluecollar:bluecollar@postgres:5432/bluecollarjob?sslmode=disable
+      REDIS_ADDR: redis:6379
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: bluecollar
+      POSTGRES_PASSWORD: bluecollar
+      POSTGRES_DB: bluecollarjob
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./000001_init_schema.up.sql:/docker-entrypoint-initdb.d/000001_init_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bluecollar -d bluecollarjob"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
+  redis_data:

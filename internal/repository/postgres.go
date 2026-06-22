@@ -10,7 +10,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var ErrNotFound = errors.New("record not found")
+var (
+	ErrNotFound = errors.New("record not found")
+	ErrConflict = errors.New("record conflict")
+)
 
 type PostgresRepositories struct {
 	Users                 UserRepository
@@ -18,6 +21,8 @@ type PostgresRepositories struct {
 	Employers             EmployerRepository
 	Jobs                  JobRepository
 	Applications          ApplicationRepository
+	ATS                   ATSRepository
+	Notifications         NotificationRepository
 }
 
 func NewPostgresRepositories(db *pgxpool.Pool) *PostgresRepositories {
@@ -27,6 +32,8 @@ func NewPostgresRepositories(db *pgxpool.Pool) *PostgresRepositories {
 		Employers:             NewPostgresEmployerRepository(db),
 		Jobs:                  NewPostgresJobRepository(db),
 		Applications:          NewPostgresApplicationRepository(db),
+		ATS:                   NewPostgresATSRepository(db),
+		Notifications:         NewPostgresNotificationRepository(db),
 	}
 }
 

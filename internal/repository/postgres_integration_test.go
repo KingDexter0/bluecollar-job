@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -116,10 +117,11 @@ func TestPostgresRepositories(t *testing.T) {
 
 	employerEmail := "repo-test-" + suffix + "@example.com"
 	employer, err := repos.Employers.CreateEmployer(ctx, &models.Employer{
-		CompanyName: "Repository Test Employer",
-		ContactName: "Test Recruiter",
-		Email:       employerEmail,
-		IsVerified:  true,
+		CompanyName:  "Repository Test Employer",
+		ContactName:  "Test Recruiter",
+		Email:        employerEmail,
+		PasswordHash: "$2a$10$0OHhwzBPi1GKvbL29X1wEegfekKbCi3LGES/IJsaPM8PGXOiW3f8.",
+		IsVerified:   true,
 	})
 	if err != nil {
 		t.Fatalf("create employer: %v", err)
@@ -139,10 +141,12 @@ func TestPostgresRepositories(t *testing.T) {
 	job, err := repos.Jobs.CreateJob(ctx, &models.Job{
 		EmployerID:               employer.ID,
 		Title:                    "Repository Test Job",
+		Role:                     "Welder",
 		Description:              "Created by repository integration test.",
 		SkillCategory:            "Welding",
 		LocationCity:             "Pune",
 		LocationState:            "Maharashtra",
+		ShiftSchedule:            "Day shift",
 		WageMinPaise:             &wageMin,
 		WageMaxPaise:             &wageMax,
 		RequiredVerificationTier: models.VerificationTierLow,
@@ -211,5 +215,110 @@ func TestPostgresRepositories(t *testing.T) {
 	}
 	if application.Status != models.ApplicationStatusShortlisted {
 		t.Fatalf("expected shortlisted application, got %s", application.Status)
+	}
+
+	secondEmployer, err := repos.Employers.CreateEmployer(ctx, &models.Employer{
+		CompanyName:  "Repository Test Employer 2",
+		ContactName:  "Test Recruiter 2",
+		Email:        "repo-test-2-" + suffix + "@example.com",
+		PasswordHash: "$2a$10$0OHhwzBPi1GKvbL29X1wEegfekKbCi3LGES/IJsaPM8PGXOiW3f8.",
+		IsVerified:   true,
+	})
+	if err != nil {
+		t.Fatalf("create second employer: %v", err)
+	}
+	secondJob, err := repos.Jobs.CreateJob(ctx, &models.Job{
+		EmployerID:               secondEmployer.ID,
+		Title:                    "Repository Test Job 2",
+		Role:                     "Picker",
+		Description:              "Created by repository integration test.",
+		SkillCategory:            "Warehouse",
+		LocationCity:             "Pune",
+		LocationState:            "Maharashtra",
+		ShiftSchedule:            "Night shift",
+		RequiredVerificationTier: models.VerificationTierLow,
+		Openings:                 1,
+		IsActive:                 true,
+	})
+	if err != nil {
+		t.Fatalf("create second job: %v", err)
+	}
+	if _, err := repos.Applications.CreateApplication(ctx, &models.Application{
+		UserID:     user.ID,
+		JobID:      secondJob.ID,
+		EmployerID: secondEmployer.ID,
+		Status:     models.ApplicationStatusApplied,
+		Source:     "test",
+	}); err != nil {
+		t.Fatalf("create second application: %v", err)
+	}
+
+	atsApplications, err := repos.ATS.ListEmployerApplications(ctx, employer.ID, EmployerApplicationFilters{Limit: 10})
+	if err != nil {
+		t.Fatalf("list employer ats applications: %v", err)
+	}
+	if len(atsApplications) != 1 {
+		t.Fatalf("expected one owned application, got %d", len(atsApplications))
+	}
+	if atsApplications[0].EmployerID != employer.ID || atsApplications[0].WorkerVerificationTier != models.VerificationTierLow {
+		t.Fatalf("expected owned application with worker tier, got %#v", atsApplications[0])
+	}
+
+	factoryLocation := "Repository Test Factory"
+	googleMapsURL := "https://maps.google.com/?q=Repository+Test+Factory"
+	startsAt := time.Now().UTC().Add(24 * time.Hour).Truncate(time.Second)
+	directSlot, directApplication, err := repos.ATS.CreateDirectInterview(ctx, employer.ID, application.ID, InterviewSlotInput{
+		StartsAt:        startsAt,
+		EndsAt:          startsAt.Add(time.Hour),
+		Timezone:        "Asia/Kolkata",
+		FactoryLocation: &factoryLocation,
+		GoogleMapsURL:   &googleMapsURL,
+	})
+	if err != nil {
+		t.Fatalf("create direct interview: %v", err)
+	}
+	if directSlot.Status != models.InterviewSlotStatusConfirmed || directApplication.Status != models.ApplicationStatusInterviewScheduled {
+		t.Fatalf("expected direct interview to schedule application, got slot=%s app=%s", directSlot.Status, directApplication.Status)
+	}
+
+	slotInputs := []InterviewSlotInput{
+		{StartsAt: startsAt.Add(48 * time.Hour), EndsAt: startsAt.Add(49 * time.Hour), Timezone: "Asia/Kolkata", FactoryLocation: &factoryLocation, GoogleMapsURL: &googleMapsURL},
+		{StartsAt: startsAt.Add(50 * time.Hour), EndsAt: startsAt.Add(51 * time.Hour), Timezone: "Asia/Kolkata", FactoryLocation: &factoryLocation, GoogleMapsURL: &googleMapsURL},
+		{StartsAt: startsAt.Add(52 * time.Hour), EndsAt: startsAt.Add(53 * time.Hour), Timezone: "Asia/Kolkata", FactoryLocation: &factoryLocation, GoogleMapsURL: &googleMapsURL},
+	}
+	slots, slotApplication, err := repos.ATS.CreateInterviewSlots(ctx, employer.ID, application.ID, slotInputs)
+	if err != nil {
+		t.Fatalf("create interview slots: %v", err)
+	}
+	if len(slots) != 3 || slotApplication.Status != models.ApplicationStatusSlotSelectionPending {
+		t.Fatalf("expected three slots and pending status, got %d and %s", len(slots), slotApplication.Status)
+	}
+
+	confirmedSlot, selectedApplication, err := repos.ATS.SelectInterviewSlot(ctx, application.ID, slots[0].ID)
+	if err != nil {
+		t.Fatalf("select interview slot: %v", err)
+	}
+	if confirmedSlot.Status != models.InterviewSlotStatusConfirmed || selectedApplication.Status != models.ApplicationStatusInterviewScheduled {
+		t.Fatalf("expected confirmed slot and scheduled app, got slot=%s app=%s", confirmedSlot.Status, selectedApplication.Status)
+	}
+	if _, _, err := repos.ATS.SelectInterviewSlot(ctx, application.ID, slots[0].ID); !errors.Is(err, ErrConflict) {
+		t.Fatalf("expected duplicate slot selection conflict, got %v", err)
+	}
+
+	event, err := repos.Notifications.CreateNotificationEvent(ctx, &models.NotificationEvent{
+		UserID:        &user.ID,
+		EmployerID:    &employer.ID,
+		ApplicationID: &application.ID,
+		Channel:       "whatsapp",
+		EventType:     "interview_scheduled",
+		Recipient:     phone,
+		Payload:       []byte(`{"source":"repository_test"}`),
+		Status:        models.NotificationStatusPending,
+	})
+	if err != nil {
+		t.Fatalf("create notification event: %v", err)
+	}
+	if event.Status != models.NotificationStatusPending {
+		t.Fatalf("expected pending notification, got %s", event.Status)
 	}
 }

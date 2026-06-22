@@ -23,6 +23,7 @@ Backend foundation for a blue-collar hiring platform that will support worker on
 - `internal/middleware`: request middleware
 - `000001_init_schema.*.sql`: initial PostgreSQL migration files
 - `docs`: project architecture notes
+- `docs_api.md`: REST API curl examples
 
 ## Environment Variables
 
@@ -192,6 +193,28 @@ go test ./internal/repository -run TestPostgresRepositories -count=1 -v
 ```
 
 If `TEST_DATABASE_URL` is not set, the integration test skips safely.
+
+## Employer Auth And Jobs
+
+Employer registration and login return JWT bearer tokens. Protected employer routes require:
+
+```bash
+Authorization: Bearer {jwt_token}
+```
+
+Implemented employer routes:
+
+- `POST /api/v1/employers/register`
+- `POST /api/v1/employers/login`
+- `GET /api/v1/employers/me`
+- `PATCH /api/v1/employers/me`
+- `POST /api/v1/employer/jobs`
+- `GET /api/v1/employer/jobs`
+- `GET /api/v1/employer/jobs/:id`
+- `PATCH /api/v1/employer/jobs/:id`
+- `PATCH /api/v1/employer/jobs/:id/status`
+
+Growth tier employers can have a maximum of 7 active jobs. Enterprise tier employers can have unlimited active jobs.
 
 ## Health Check
 

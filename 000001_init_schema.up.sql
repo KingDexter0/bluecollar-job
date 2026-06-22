@@ -139,6 +139,7 @@ CREATE TABLE employers (
     company_name VARCHAR(180) NOT NULL,
     contact_name VARCHAR(150) NOT NULL,
     email CITEXT NOT NULL,
+    password_hash TEXT NOT NULL,
     phone_number VARCHAR(20),
     city VARCHAR(100),
     state VARCHAR(100),
@@ -155,10 +156,12 @@ CREATE TABLE jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     employer_id UUID NOT NULL REFERENCES employers(id) ON DELETE CASCADE,
     title VARCHAR(180) NOT NULL,
+    role VARCHAR(120) NOT NULL,
     description TEXT NOT NULL,
     skill_category VARCHAR(120) NOT NULL,
     location_city VARCHAR(100) NOT NULL,
     location_state VARCHAR(100) NOT NULL,
+    shift_schedule VARCHAR(120) NOT NULL,
     wage_min_paise INTEGER CHECK (wage_min_paise IS NULL OR wage_min_paise >= 0),
     wage_max_paise INTEGER CHECK (wage_max_paise IS NULL OR wage_max_paise >= 0),
     required_verification_tier verification_tier_enum NOT NULL DEFAULT 'Low',
@@ -200,6 +203,8 @@ CREATE TABLE interview_slots (
     starts_at TIMESTAMPTZ NOT NULL,
     ends_at TIMESTAMPTZ NOT NULL,
     timezone VARCHAR(80) NOT NULL DEFAULT 'Asia/Kolkata',
+    factory_location TEXT,
+    google_maps_url TEXT,
     status interview_slot_status_enum NOT NULL DEFAULT 'Available',
     locked_until TIMESTAMPTZ,
     confirmed_at TIMESTAMPTZ,
@@ -323,6 +328,7 @@ CREATE INDEX idx_applications_job_id ON applications(job_id);
 CREATE INDEX idx_applications_status ON applications(status);
 CREATE INDEX idx_interview_slots_application_id ON interview_slots(application_id);
 CREATE INDEX idx_interview_slots_starts_at ON interview_slots(starts_at);
+CREATE INDEX idx_interview_slots_status ON interview_slots(status);
 CREATE INDEX idx_referrals_referrer_user_id ON referrals(referrer_user_id);
 CREATE INDEX idx_referrals_referred_user_id ON referrals(referred_user_id);
 CREATE INDEX idx_referral_transactions_referral_id ON referral_transactions(referral_id);
@@ -442,6 +448,7 @@ INSERT INTO employers (
     company_name,
     contact_name,
     email,
+    password_hash,
     phone_number,
     city,
     state,
@@ -451,6 +458,7 @@ INSERT INTO employers (
     'Reliable Facilities Pvt Ltd',
     'Anita Sharma',
     'hiring@reliablefacilities.example',
+    '$2a$10$0OHhwzBPi1GKvbL29X1wEegfekKbCi3LGES/IJsaPM8PGXOiW3f8.',
     '+911234567890',
     'Gurugram',
     'Haryana',
@@ -461,10 +469,12 @@ INSERT INTO jobs (
     id,
     employer_id,
     title,
+    role,
     description,
     skill_category,
     location_city,
     location_state,
+    shift_schedule,
     wage_min_paise,
     wage_max_paise,
     required_verification_tier,
@@ -476,10 +486,12 @@ INSERT INTO jobs (
         '88888888-8888-8888-8888-888888888888',
         '77777777-7777-7777-7777-777777777777',
         'Electrician Helper',
+        'Electrician Helper',
         'Assist senior electricians with wiring, fixtures, and maintenance at commercial sites.',
         'Electrical',
         'Gurugram',
         'Haryana',
+        'Day shift, 9 AM to 6 PM',
         1800000,
         2400000,
         'Low',
@@ -491,10 +503,12 @@ INSERT INTO jobs (
         '99999999-9999-9999-9999-999999999999',
         '77777777-7777-7777-7777-777777777777',
         'Housekeeping Staff',
+        'Housekeeping Staff',
         'Maintain cleanliness for office premises with rotational shifts.',
         'Housekeeping',
         'Noida',
         'Uttar Pradesh',
+        'Rotational shift',
         1400000,
         1800000,
         'Medium',
@@ -533,12 +547,16 @@ INSERT INTO interview_slots (
     application_id,
     starts_at,
     ends_at,
+    factory_location,
+    google_maps_url,
     status
 ) VALUES (
     'cccccccc-cccc-cccc-cccc-cccccccccccc',
     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
     NOW() + INTERVAL '2 days',
     NOW() + INTERVAL '2 days 30 minutes',
+    'Reliable Facilities Gurugram Plant',
+    'https://maps.google.com/?q=Reliable+Facilities+Gurugram',
     'Available'
 );
 

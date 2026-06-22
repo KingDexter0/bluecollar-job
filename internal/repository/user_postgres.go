@@ -68,6 +68,23 @@ func (r *PostgresUserRepository) GetUserByPhone(ctx context.Context, phoneNumber
 	return scanUser(r.db.QueryRow(ctx, `SELECT `+userColumns+` FROM users WHERE phone_number = $1`, phoneNumber))
 }
 
+func (r *PostgresUserRepository) UpdateUserProfile(ctx context.Context, user *models.User) (*models.User, error) {
+	return scanUser(r.db.QueryRow(ctx, `
+		UPDATE users
+		SET full_name = $2,
+			language_preference = $3,
+			target_role = $4,
+			preferred_zone = $5
+		WHERE id = $1
+		RETURNING `+userColumns,
+		user.ID,
+		user.FullName,
+		user.LanguagePreference,
+		nullableString(user.TargetRole),
+		nullableString(user.PreferredZone),
+	))
+}
+
 func (r *PostgresUserRepository) UpdateUserVerificationTier(ctx context.Context, id string, tier models.VerificationTier) (*models.User, error) {
 	return scanUser(r.db.QueryRow(ctx, `
 		UPDATE users

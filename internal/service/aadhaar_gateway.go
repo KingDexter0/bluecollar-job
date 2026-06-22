@@ -6,8 +6,8 @@ import (
 )
 
 type AadhaarOTPRequest struct {
-	PhoneNumber         string
-	AadhaarReferenceKey string
+	AadhaarNumber string
+	PhoneNumber   string
 }
 
 type AadhaarOTPResponse struct {
@@ -36,8 +36,8 @@ func NewMockAadhaarGateway() *MockAadhaarGateway {
 }
 
 func (g *MockAadhaarGateway) SendOTP(ctx context.Context, request AadhaarOTPRequest) (AadhaarOTPResponse, error) {
-	if request.PhoneNumber == "" || request.AadhaarReferenceKey == "" {
-		return AadhaarOTPResponse{}, errors.New("phone number and aadhaar reference key are required")
+	if request.AadhaarNumber == "" || request.PhoneNumber == "" {
+		return AadhaarOTPResponse{}, errors.New("aadhaar number and phone number are required")
 	}
 
 	return AadhaarOTPResponse{

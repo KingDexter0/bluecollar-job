@@ -11,6 +11,7 @@ type UserRepository interface {
 	CreateUser(ctx context.Context, user *models.User) (*models.User, error)
 	GetUserByID(ctx context.Context, id string) (*models.User, error)
 	GetUserByPhone(ctx context.Context, phoneNumber string) (*models.User, error)
+	UpdateUserProfile(ctx context.Context, user *models.User) (*models.User, error)
 	UpdateUserVerificationTier(ctx context.Context, id string, tier models.VerificationTier) (*models.User, error)
 	GetUserByReferralCode(ctx context.Context, referralCode string) (*models.User, error)
 }
@@ -29,14 +30,20 @@ type EmployerRepository interface {
 	CreateEmployer(ctx context.Context, employer *models.Employer) (*models.Employer, error)
 	GetEmployerByID(ctx context.Context, id string) (*models.Employer, error)
 	GetEmployerByEmail(ctx context.Context, email string) (*models.Employer, error)
+	UpdateEmployerProfile(ctx context.Context, employer *models.Employer) (*models.Employer, error)
+	GetActiveSubscriptionTier(ctx context.Context, employerID string) (models.SubscriptionTier, error)
 }
 
 type JobRepository interface {
 	CreateJob(ctx context.Context, job *models.Job) (*models.Job, error)
 	GetJobByID(ctx context.Context, id string) (*models.Job, error)
+	GetJobByIDAndEmployer(ctx context.Context, id, employerID string) (*models.Job, error)
 	ListActiveJobs(ctx context.Context, limit, offset int) ([]models.Job, error)
 	ListJobsByEmployer(ctx context.Context, employerID string, limit, offset int) ([]models.Job, error)
+	CountActiveJobsByEmployer(ctx context.Context, employerID string) (int, error)
+	UpdateJob(ctx context.Context, job *models.Job) (*models.Job, error)
 	UpdateJobStatus(ctx context.Context, id string, isActive bool) (*models.Job, error)
+	UpdateEmployerJobStatus(ctx context.Context, id, employerID string, isActive bool) (*models.Job, error)
 }
 
 type ApplicationRepository interface {
@@ -45,4 +52,35 @@ type ApplicationRepository interface {
 	ListApplicationsByUser(ctx context.Context, userID string, limit, offset int) ([]models.Application, error)
 	ListApplicationsByJob(ctx context.Context, jobID string, limit, offset int) ([]models.Application, error)
 	UpdateApplicationStatus(ctx context.Context, id string, status models.ApplicationStatus) (*models.Application, error)
+}
+
+type EmployerApplicationFilters struct {
+	JobID            *string
+	Status           *models.ApplicationStatus
+	VerificationTier *models.VerificationTier
+	TargetRole       *string
+	PreferredZone    *string
+	Limit            int
+	Offset           int
+}
+
+type InterviewSlotInput struct {
+	StartsAt        time.Time
+	EndsAt          time.Time
+	Timezone        string
+	FactoryLocation *string
+	GoogleMapsURL   *string
+}
+
+type ATSRepository interface {
+	ListEmployerApplications(ctx context.Context, employerID string, filters EmployerApplicationFilters) ([]models.ApplicationATS, error)
+	GetEmployerApplicationByID(ctx context.Context, employerID, applicationID string) (*models.ApplicationATS, error)
+	UpdateEmployerApplicationStatus(ctx context.Context, employerID, applicationID string, status models.ApplicationStatus) (*models.ApplicationATS, error)
+	CreateDirectInterview(ctx context.Context, employerID, applicationID string, slot InterviewSlotInput) (*models.InterviewSlot, *models.ApplicationATS, error)
+	CreateInterviewSlots(ctx context.Context, employerID, applicationID string, slots []InterviewSlotInput) ([]models.InterviewSlot, *models.ApplicationATS, error)
+	SelectInterviewSlot(ctx context.Context, applicationID, slotID string) (*models.InterviewSlot, *models.Application, error)
+}
+
+type NotificationRepository interface {
+	CreateNotificationEvent(ctx context.Context, event *models.NotificationEvent) (*models.NotificationEvent, error)
 }

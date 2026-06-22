@@ -14,6 +14,7 @@ type Config struct {
 	Redis               RedisConfig
 	AadhaarGateway      AadhaarGatewayConfig
 	JWTSecret           string
+	JWTIssuer           string
 	WhatsAppVerifyToken string
 	WhatsAppAccessToken string
 }
@@ -54,6 +55,7 @@ func Load() (*Config, error) {
 			ClientSecret: os.Getenv("AADHAAR_GATEWAY_CLIENT_SECRET"),
 		},
 		JWTSecret:           os.Getenv("JWT_SECRET"),
+		JWTIssuer:           getEnv("JWT_ISSUER", "bluecollarjob"),
 		WhatsAppVerifyToken: os.Getenv("WHATSAPP_VERIFY_TOKEN"),
 		WhatsAppAccessToken: os.Getenv("WHATSAPP_ACCESS_TOKEN"),
 	}

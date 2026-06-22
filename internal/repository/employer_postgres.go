@@ -14,6 +14,7 @@ const employerColumns = `
 	company_name,
 	contact_name,
 	email,
+	password_hash,
 	phone_number,
 	city,
 	state,
@@ -35,16 +36,18 @@ func (r *PostgresEmployerRepository) CreateEmployer(ctx context.Context, employe
 			company_name,
 			contact_name,
 			email,
+			password_hash,
 			phone_number,
 			city,
 			state,
 			is_verified
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING `+employerColumns,
 		employer.CompanyName,
 		employer.ContactName,
 		employer.Email,
+		employer.PasswordHash,
 		nullableString(employer.PhoneNumber),
 		nullableString(employer.City),
 		nullableString(employer.State),
@@ -60,6 +63,43 @@ func (r *PostgresEmployerRepository) GetEmployerByEmail(ctx context.Context, ema
 	return scanEmployer(r.db.QueryRow(ctx, `SELECT `+employerColumns+` FROM employers WHERE email = $1`, email))
 }
 
+func (r *PostgresEmployerRepository) UpdateEmployerProfile(ctx context.Context, employer *models.Employer) (*models.Employer, error) {
+	return scanEmployer(r.db.QueryRow(ctx, `
+		UPDATE employers
+		SET company_name = $2,
+			contact_name = $3,
+			phone_number = $4,
+			city = $5,
+			state = $6
+		WHERE id = $1
+		RETURNING `+employerColumns,
+		employer.ID,
+		employer.CompanyName,
+		employer.ContactName,
+		nullableString(employer.PhoneNumber),
+		nullableString(employer.City),
+		nullableString(employer.State),
+	))
+}
+
+func (r *PostgresEmployerRepository) GetActiveSubscriptionTier(ctx context.Context, employerID string) (models.SubscriptionTier, error) {
+	var tier models.SubscriptionTier
+	err := r.db.QueryRow(ctx, `
+		SELECT tier
+		FROM subscriptions
+		WHERE employer_id = $1
+			AND is_active = TRUE
+			AND (ends_at IS NULL OR ends_at > NOW())
+		ORDER BY starts_at DESC
+		LIMIT 1`,
+		employerID,
+	).Scan(&tier)
+	if err != nil {
+		return "", mapNotFound(err)
+	}
+	return tier, nil
+}
+
 func scanEmployer(row interface{ Scan(dest ...any) error }) (*models.Employer, error) {
 	var employer models.Employer
 	var phoneNumber sql.NullString
@@ -71,6 +111,7 @@ func scanEmployer(row interface{ Scan(dest ...any) error }) (*models.Employer, e
 		&employer.CompanyName,
 		&employer.ContactName,
 		&employer.Email,
+		&employer.PasswordHash,
 		&phoneNumber,
 		&city,
 		&state,

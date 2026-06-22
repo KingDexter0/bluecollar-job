@@ -99,26 +99,29 @@ type WorkerIdentityVerification struct {
 }
 
 type Employer struct {
-	ID          string
-	CompanyName string
-	ContactName string
-	Email       string
-	PhoneNumber *string
-	City        *string
-	State       *string
-	IsVerified  bool
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID           string
+	CompanyName  string
+	ContactName  string
+	Email        string
+	PasswordHash string
+	PhoneNumber  *string
+	City         *string
+	State        *string
+	IsVerified   bool
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 type Job struct {
 	ID                       string
 	EmployerID               string
 	Title                    string
+	Role                     string
 	Description              string
 	SkillCategory            string
 	LocationCity             string
 	LocationState            string
+	ShiftSchedule            string
 	WageMinPaise             *int
 	WageMaxPaise             *int
 	RequiredVerificationTier VerificationTier
@@ -148,11 +151,13 @@ type InterviewSlot struct {
 	StartsAt      time.Time
 	EndsAt        time.Time
 	Timezone      string
-	Status        InterviewSlotStatus
-	LockedUntil   *time.Time
-	ConfirmedAt   *time.Time
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	FactoryLocation *string
+	GoogleMapsURL   *string
+	Status          InterviewSlotStatus
+	LockedUntil     *time.Time
+	ConfirmedAt     *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 type Referral struct {
@@ -204,4 +209,15 @@ type NotificationEvent struct {
 	LastError     *string
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
+}
+
+type ApplicationATS struct {
+	Application
+	WorkerFullName         string
+	WorkerPhoneNumber      string
+	WorkerVerificationTier VerificationTier
+	WorkerTargetRole       *string
+	WorkerPreferredZone    *string
+	JobTitle               string
+	JobRole                string
 }

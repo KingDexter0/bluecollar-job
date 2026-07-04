@@ -353,6 +353,11 @@ curl http://localhost:8080/metrics
 
 See `docs_production.md` for production environment variables, migration commands, Docker production builds, Kubernetes/Linode LKE deployment notes, SSL setup, security checklist, backup checklist, rollback checklist, and smoke testing.
 
+Staging deployment and handover docs:
+
+- `docs_staging_vps.md`: Linode VPS deployment with Docker Compose, NGINX, SSL, smoke tests, and rollback.
+- `docs_handover.md`: final operator handover checklist.
+
 Migration commands:
 
 ```bash

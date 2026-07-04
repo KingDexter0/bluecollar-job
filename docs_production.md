@@ -47,6 +47,16 @@ docker compose -f docker-compose.prod.yml build
 docker compose -f docker-compose.prod.yml up -d
 ```
 
+For staging, prefer:
+
+```bash
+docker compose --env-file .env.staging -f docker-compose.prod.yml build
+docker compose --env-file .env.staging -f docker-compose.prod.yml run --rm api /app/migrate up
+docker compose --env-file .env.staging -f docker-compose.prod.yml up -d
+```
+
+See `docs_staging_vps.md` for the full Linode VPS deployment path.
+
 ## Health And Metrics
 
 - `/live`: API process liveness.
@@ -153,6 +163,28 @@ Linode LKE outline:
 8. Apply HPAs and ingress.
 9. Run `/ready` and the smoke test against the public API URL.
 
+## Staging Checklist
+
+- Copy `.env.staging.example` to `.env.staging`.
+- Set strong `JWT_SECRET`, `ADMIN_TOKEN`, and `REDIS_PASSWORD`.
+- Set `DOCUMENT_UPLOAD_ENABLED=false` until object storage is wired.
+- Configure `staging.example.com` and `api-staging.example.com`.
+- Install Docker, NGINX, Certbot, and firewall rules.
+- Run `scripts/deploy-staging.sh`.
+- Verify `/health`, `/ready`, `/live`, `/metrics`.
+- Run the smoke test.
+
+## Production Checklist
+
+- Use managed PostgreSQL and Redis or private-network services.
+- Do not expose database or Redis ports publicly.
+- Enable HTTPS and renewals.
+- Configure backups and restore drills.
+- Run migrations separately from app rollout.
+- Tag Docker images or Git commits before deployment.
+- Keep real provider credentials out of Git.
+- Review logs for sensitive-data safety before launch.
+
 ## NGINX Ingress And SSL
 
 `deploy/k8s/ingress.yaml` contains placeholders for API and frontend domains plus a cert-manager issuer annotation. Install NGINX ingress and cert-manager on LKE before applying ingress.
@@ -188,6 +220,12 @@ Linode LKE outline:
 
 ```powershell
 .\scripts\smoke-test.ps1 -ApiBaseUrl http://localhost:8081
+```
+
+Linux staging:
+
+```bash
+./scripts/smoke-test.sh https://api-staging.example.com
 ```
 
 Full demo flow:

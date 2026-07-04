@@ -25,3 +25,13 @@ func (h *HealthHandler) Check(c *gin.Context) {
 
 	c.JSON(statusCode, response)
 }
+
+func (h *HealthHandler) Ready(c *gin.Context) {
+	h.Check(c)
+}
+
+func (h *HealthHandler) Live(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"status": "ok",
+	})
+}

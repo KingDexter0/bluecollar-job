@@ -335,7 +335,7 @@ func insertInterviewSlot(ctx context.Context, db queryer, applicationID string, 
 			status,
 			confirmed_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, CASE WHEN $7 = 'Confirmed' THEN NOW() ELSE NULL END)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, CASE WHEN $7::interview_slot_status_enum = 'Confirmed' THEN NOW() ELSE NULL END)
 		RETURNING `+interviewSlotColumns,
 		applicationID,
 		slot.StartsAt,

@@ -21,6 +21,21 @@ curl -X POST http://localhost:8081/api/v1/workers \
   }'
 ```
 
+`referral_code` is optional; if omitted, the API generates one. To register through a referral, pass `referred_by_code`:
+
+```bash
+curl -X POST http://localhost:8081/api/v1/workers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone_number": "+919876543298",
+    "full_name": "Referred Worker",
+    "language_preference": "hi",
+    "target_role": "Machine Operator",
+    "preferred_zone": "Pune",
+    "referred_by_code": "RAJU100"
+  }'
+```
+
 ## Get Worker
 
 ```bash
@@ -136,6 +151,24 @@ curl http://localhost:8081/api/v1/applications/{application_id}
 
 ```bash
 curl "http://localhost:8081/api/v1/workers/{worker_id}/applications?limit=20&offset=0"
+```
+
+## Get Worker Referral Code
+
+```bash
+curl http://localhost:8081/api/v1/workers/{worker_id}/referral
+```
+
+## List Worker Referrals
+
+```bash
+curl "http://localhost:8081/api/v1/workers/{worker_id}/referrals?limit=20&offset=0"
+```
+
+## List Referral Cashback Transactions
+
+```bash
+curl "http://localhost:8081/api/v1/workers/{worker_id}/referral-transactions?limit=20&offset=0"
 ```
 
 ## Employer Registration
@@ -310,5 +343,417 @@ curl -X POST http://localhost:8081/api/v1/applications/{application_id}/intervie
   -H "Content-Type: application/json" \
   -d '{
     "slot_id": "{interview_slot_id}"
+  }'
+```
+
+## Dev: List Notifications
+
+Available only when `APP_ENV` is `development`, `local`, or `dev`. Returns safe notification event rows for local inspection. The response includes a message preview, not raw payload data.
+
+```bash
+curl "http://localhost:8081/api/v1/dev/notifications?limit=50&offset=0"
+```
+
+Optional filters:
+
+```bash
+curl "http://localhost:8081/api/v1/dev/notifications?status=Pending&event_type=application_submitted&limit=20&offset=0"
+```
+
+Response shape:
+
+```json
+{
+  "notifications": [
+    {
+      "id": "notification-id",
+      "user_id": "worker-id",
+      "worker_id": "worker-id",
+      "phone_number": "+919876543210",
+      "event_type": "application_submitted",
+      "message_preview": "Your application for Machine Operator has been submitted.",
+      "status": "Pending",
+      "created_at": "2026-07-04T10:00:00Z",
+      "updated_at": "2026-07-04T10:00:00Z"
+    }
+  ]
+}
+```
+
+Sensitive fields such as Aadhaar data, OTPs, password hashes, Aadhaar hashes, raw document refs, and raw notification payloads are not returned.
+
+## Dev: Process Notifications Once
+
+Available only when `APP_ENV` is `development`, `local`, or `dev`. This claims pending `notification_events`, sends through the mock WhatsApp sender, and marks each event `Sent` or `Failed`.
+
+```bash
+curl -X POST http://localhost:8081/api/v1/dev/notifications/process-once \
+  -H "Content-Type: application/json" \
+  -d '{
+    "limit": 10
+  }'
+```
+
+## Dev: Set Redis Conversation State
+
+Stores state at `wa_state:{phone_number}`.
+
+```bash
+curl -X POST http://localhost:8081/api/v1/dev/redis/state \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone_number": "+919876543210",
+    "state": "awaiting_preferred_zone",
+    "data": {
+      "language": "hi",
+      "source": "local-dev"
+    },
+    "ttl_seconds": 3600
+  }'
+```
+
+## Dev: Get Redis Conversation State
+
+URL-encode the `+` in the phone number as `%2B`.
+
+```bash
+curl "http://localhost:8081/api/v1/dev/redis/state/%2B919876543210"
+```
+
+## Dev: Delete Redis Conversation State
+
+```bash
+curl -X DELETE "http://localhost:8081/api/v1/dev/redis/state/%2B919876543210"
+```
+
+## Dev: Generate Application Status OTP
+
+Stores only a hashed OTP and safe transaction reference at `app_status_otp:{phone_number}` with a 5 minute TTL. The raw OTP is returned only by this local/dev endpoint for testing.
+
+```bash
+curl -X POST http://localhost:8081/api/v1/dev/status-otp/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone_number": "+919876543210"
+  }'
+```
+
+## Dev: Verify Application Status OTP
+
+```bash
+curl -X POST http://localhost:8081/api/v1/dev/status-otp/verify \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone_number": "+919876543210",
+    "transaction_id": "{transaction_id}",
+    "otp": "{otp_for_local_dev}"
+  }'
+```
+
+## Dev: Process Referral Cashback Payouts
+
+Available only when `APP_ENV` is `development`, `local`, or `dev`. This claims pending referral cashback transactions, processes them through the mock payout gateway, and marks each transaction `Paid` or `Failed`. No real UPI/payment integration is called.
+
+```bash
+curl -X POST http://localhost:8081/api/v1/dev/referrals/process-payouts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "limit": 10
+  }'
+```
+
+## WhatsApp Webhook Verification
+
+Set `WHATSAPP_VERIFY_TOKEN` in `.env`, then verify the webhook locally:
+
+```bash
+curl "http://localhost:8081/api/v1/whatsapp/webhook?hub.mode=subscribe&hub.verify_token={WHATSAPP_VERIFY_TOKEN}&hub.challenge=local-challenge"
+```
+
+## WhatsApp/OpenWA Local Message Test
+
+This accepts OpenWA-style JSON and uses the mock WhatsApp sender only. No real Meta, OpenWA, or WhatsApp API call is made.
+
+```bash
+curl -X POST http://localhost:8081/api/v1/whatsapp/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "919876543250@c.us",
+    "type": "chat",
+    "body": "hi"
+  }'
+```
+
+To start onboarding with a referral code, send:
+
+```bash
+curl -X POST http://localhost:8081/api/v1/whatsapp/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "919876543252@c.us",
+    "type": "chat",
+    "body": "ref RAJU100"
+  }'
+```
+
+Continue the new-worker onboarding flow by sending replies from the same phone:
+
+```bash
+curl -X POST http://localhost:8081/api/v1/whatsapp/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "919876543250@c.us",
+    "type": "chat",
+    "body": "Ravi Kumar"
+  }'
+```
+
+Language options:
+
+```bash
+curl -X POST http://localhost:8081/api/v1/whatsapp/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "919876543250@c.us",
+    "type": "chat",
+    "body": "1"
+  }'
+```
+
+Supported languages are `English`, `Hindi`, `Marathi`, and `Telugu`.
+
+Continue profile setup:
+
+```bash
+curl -X POST http://localhost:8081/api/v1/whatsapp/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "919876543250@c.us",
+    "type": "chat",
+    "body": "Machine Operator"
+  }'
+```
+
+```bash
+curl -X POST http://localhost:8081/api/v1/whatsapp/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "919876543250@c.us",
+    "type": "chat",
+    "body": "Pune"
+  }'
+```
+
+## WhatsApp Aadhaar OTP Verification Flow
+
+Choose Aadhaar OTP from the verification menu:
+
+```bash
+curl -X POST http://localhost:8081/api/v1/whatsapp/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "919876543250@c.us",
+    "type": "chat",
+    "body": "A"
+  }'
+```
+
+Send Aadhaar number. Raw Aadhaar is not stored in Redis or PostgreSQL.
+
+```bash
+curl -X POST http://localhost:8081/api/v1/whatsapp/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "919876543250@c.us",
+    "type": "chat",
+    "body": "123456789012"
+  }'
+```
+
+Give consent and repeat Aadhaar in the same message so the server can start mock OTP without storing raw Aadhaar between messages:
+
+```bash
+curl -X POST http://localhost:8081/api/v1/whatsapp/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "919876543250@c.us",
+    "type": "chat",
+    "body": "YES 123456789012"
+  }'
+```
+
+Verify mock Aadhaar OTP. The local mock accepts any non-empty OTP.
+
+```bash
+curl -X POST http://localhost:8081/api/v1/whatsapp/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "919876543250@c.us",
+    "type": "chat",
+    "body": "123456"
+  }'
+```
+
+Successful Aadhaar OTP marks the worker as `Low` risk.
+If the worker joined with a valid referral code, completing Aadhaar, document upload, or skip verification creates a pending Rs 100 cashback transaction for the referrer.
+
+## WhatsApp Document Upload Verification Flow
+
+Choose document upload:
+
+```bash
+curl -X POST http://localhost:8081/api/v1/whatsapp/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "919876543250@c.us",
+    "type": "chat",
+    "body": "B"
+  }'
+```
+
+Send an OpenWA-style media/document reference. Only `media_ref` is stored.
+
+```bash
+curl -X POST http://localhost:8081/api/v1/whatsapp/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "919876543250@c.us",
+    "type": "image",
+    "media_ref": "local-dev/document-aadhaar-photo.jpg",
+    "caption": "Aadhaar document"
+  }'
+```
+
+Document upload marks the worker as `Medium` risk.
+
+## WhatsApp Skip Verification Flow
+
+Choose skip and confirm:
+
+```bash
+curl -X POST http://localhost:8081/api/v1/whatsapp/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "919876543250@c.us",
+    "type": "chat",
+    "body": "C"
+  }'
+```
+
+```bash
+curl -X POST http://localhost:8081/api/v1/whatsapp/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "919876543250@c.us",
+    "type": "chat",
+    "body": "YES"
+  }'
+```
+
+Skip verification marks the worker as `High` risk.
+If the worker joined with a valid referral code, this also makes the referral cashback eligible.
+
+## WhatsApp Referral Code
+
+Returning users can type `referral` to see their referral code:
+
+```bash
+curl -X POST http://localhost:8081/api/v1/whatsapp/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "919876543250@c.us",
+    "type": "chat",
+    "body": "referral"
+  }'
+```
+
+## WhatsApp Returning User Menu
+
+For a returning worker, any message without an active onboarding state returns:
+
+```text
+1. Check Application Status
+2. Update Profile
+3. Browse Jobs
+4. Apply to Job
+```
+
+To start application status OTP flow:
+
+```bash
+curl -X POST http://localhost:8081/api/v1/whatsapp/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "919876543250@c.us",
+    "type": "chat",
+    "body": "1"
+  }'
+```
+
+The local mock response includes `Local dev OTP: 123456` style text for testing. Reply with that OTP:
+
+```bash
+curl -X POST http://localhost:8081/api/v1/whatsapp/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "919876543250@c.us",
+    "type": "chat",
+    "body": "{otp_from_mock_reply}"
+  }'
+```
+
+## WhatsApp Browse Jobs And Apply
+
+Browse active jobs from the returning menu:
+
+```bash
+curl -X POST http://localhost:8081/api/v1/whatsapp/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "919876543250@c.us",
+    "type": "chat",
+    "body": "3"
+  }'
+```
+
+Apply by replying with a job ID shown in the browse response:
+
+```bash
+curl -X POST http://localhost:8081/api/v1/whatsapp/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "919876543250@c.us",
+    "type": "chat",
+    "body": "{job_id}"
+  }'
+```
+
+Application creation uses the existing application service, creates a pending notification event, and sends confirmation through the mock WhatsApp sender.
+
+## WhatsApp Meta-Style Local Message Test
+
+```bash
+curl -X POST http://localhost:8081/api/v1/whatsapp/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "entry": [
+      {
+        "changes": [
+          {
+            "value": {
+              "messages": [
+                {
+                  "from": "919876543251",
+                  "type": "text",
+                  "text": {
+                    "body": "hi"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
   }'
 ```

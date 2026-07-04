@@ -24,14 +24,20 @@ type identityVerificationService struct {
 	users         repository.UserRepository
 	verifications repository.IdentityVerificationRepository
 	gateway       AadhaarGateway
+	referrals     ReferralService
 	now           func() time.Time
 }
 
-func NewIdentityVerificationService(users repository.UserRepository, verifications repository.IdentityVerificationRepository, gateway AadhaarGateway) IdentityVerificationService {
+func NewIdentityVerificationService(users repository.UserRepository, verifications repository.IdentityVerificationRepository, gateway AadhaarGateway, referrals ...ReferralService) IdentityVerificationService {
+	var referralService ReferralService
+	if len(referrals) > 0 {
+		referralService = referrals[0]
+	}
 	return &identityVerificationService{
 		users:         users,
 		verifications: verifications,
 		gateway:       gateway,
+		referrals:     referralService,
 		now:           func() time.Time { return time.Now().UTC() },
 	}
 }
@@ -108,6 +114,11 @@ func (s *identityVerificationService) VerifyAadhaarOTP(ctx context.Context, user
 	if _, err := s.users.UpdateUserVerificationTier(ctx, userID, models.VerificationTierLow); err != nil {
 		return nil, err
 	}
+	if s.referrals != nil {
+		if _, err := s.referrals.CompleteOnboarding(ctx, userID); err != nil {
+			return nil, err
+		}
+	}
 
 	return verification, nil
 }
@@ -126,6 +137,11 @@ func (s *identityVerificationService) MarkDocumentUploaded(ctx context.Context, 
 		if _, err := s.users.UpdateUserVerificationTier(ctx, userID, models.VerificationTierMedium); err != nil {
 			return nil, err
 		}
+		if s.referrals != nil {
+			if _, err := s.referrals.CompleteOnboarding(ctx, userID); err != nil {
+				return nil, err
+			}
+		}
 		return verification, nil
 	}
 
@@ -143,6 +159,11 @@ func (s *identityVerificationService) MarkDocumentUploaded(ctx context.Context, 
 	}
 	if _, err := s.users.UpdateUserVerificationTier(ctx, userID, models.VerificationTierMedium); err != nil {
 		return nil, err
+	}
+	if s.referrals != nil {
+		if _, err := s.referrals.CompleteOnboarding(ctx, userID); err != nil {
+			return nil, err
+		}
 	}
 
 	return verification, nil
@@ -165,6 +186,11 @@ func (s *identityVerificationService) MarkSkipped(ctx context.Context, userID, r
 		if _, err := s.users.UpdateUserVerificationTier(ctx, userID, models.VerificationTierHigh); err != nil {
 			return nil, err
 		}
+		if s.referrals != nil {
+			if _, err := s.referrals.CompleteOnboarding(ctx, userID); err != nil {
+				return nil, err
+			}
+		}
 		return verification, nil
 	}
 
@@ -180,6 +206,11 @@ func (s *identityVerificationService) MarkSkipped(ctx context.Context, userID, r
 	}
 	if _, err := s.users.UpdateUserVerificationTier(ctx, userID, models.VerificationTierHigh); err != nil {
 		return nil, err
+	}
+	if s.referrals != nil {
+		if _, err := s.referrals.CompleteOnboarding(ctx, userID); err != nil {
+			return nil, err
+		}
 	}
 
 	return verification, nil

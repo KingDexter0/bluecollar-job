@@ -34,17 +34,26 @@ type UpdateWorkerProfileInput struct {
 }
 
 type workerService struct {
-	users repository.UserRepository
+	users     repository.UserRepository
+	referrals ReferralService
 }
 
-func NewWorkerService(users repository.UserRepository) WorkerService {
-	return &workerService{users: users}
+func NewWorkerService(users repository.UserRepository, referrals ...ReferralService) WorkerService {
+	var referralService ReferralService
+	if len(referrals) > 0 {
+		referralService = referrals[0]
+	}
+	return &workerService{users: users, referrals: referralService}
 }
 
 func (s *workerService) CreateWorker(ctx context.Context, input CreateWorkerInput) (*models.User, error) {
 	language := strings.TrimSpace(input.LanguagePreference)
 	if language == "" {
 		language = "en"
+	}
+	referralCode := strings.TrimSpace(input.ReferralCode)
+	if referralCode == "" {
+		referralCode = referralCodeFromPhone(input.PhoneNumber)
 	}
 
 	user, err := s.users.CreateUser(ctx, &models.User{
@@ -54,12 +63,17 @@ func (s *workerService) CreateWorker(ctx context.Context, input CreateWorkerInpu
 		TargetRole:         cleanStringPtr(input.TargetRole),
 		PreferredZone:      cleanStringPtr(input.PreferredZone),
 		VerificationTier:   models.VerificationTierHigh,
-		ReferralCode:       strings.TrimSpace(input.ReferralCode),
+		ReferralCode:       referralCode,
 		ReferredByCode:     cleanStringPtr(input.ReferredByCode),
 		IsActive:           true,
 	})
 	if err != nil {
 		return nil, err
+	}
+	if s.referrals != nil {
+		if _, err := s.referrals.RegisterReferral(ctx, user); err != nil {
+			return nil, err
+		}
 	}
 
 	return user, nil

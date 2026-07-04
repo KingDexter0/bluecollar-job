@@ -22,11 +22,14 @@ type authService struct {
 	ttl       time.Duration
 }
 
-func NewAuthService(jwtSecret, issuer string) AuthService {
+func NewAuthService(jwtSecret, issuer string, ttl time.Duration) AuthService {
+	if ttl <= 0 {
+		ttl = 24 * time.Hour
+	}
 	return &authService{
 		jwtSecret: []byte(jwtSecret),
 		issuer:    issuer,
-		ttl:       24 * time.Hour,
+		ttl:       ttl,
 	}
 }
 

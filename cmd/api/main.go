@@ -27,7 +27,8 @@ func main() {
 		log.Fatalf("load config: %v", err)
 	}
 
-	ctx := context.Background()
+	ctx, stopRuntime := context.WithCancel(context.Background())
+	defer stopRuntime()
 
 	dbPool, err := database.NewPostgresPool(ctx, cfg.DatabaseURL)
 	if err != nil {
@@ -46,17 +47,33 @@ func main() {
 	healthHandler := handler.NewHealthHandler(healthService)
 
 	repositories := repository.NewPostgresRepositories(dbPool)
-	authService := service.NewAuthService(cfg.JWTSecret, cfg.JWTIssuer)
-	workerService := service.NewWorkerService(repositories.Users)
+	authService := service.NewAuthService(cfg.JWTSecret, cfg.JWTIssuer, cfg.JWTTTL)
+	referralService := service.NewReferralService(repositories.Users, repositories.Referrals, repositories.Notifications, service.NewMockReferralPayoutGateway())
+	workerService := service.NewWorkerService(repositories.Users, referralService)
 	identityVerificationService := service.NewIdentityVerificationService(
 		repositories.Users,
 		repositories.IdentityVerifications,
 		service.NewMockAadhaarGateway(),
+		referralService,
 	)
 	jobService := service.NewJobService(repositories.Jobs)
-	applicationService := service.NewApplicationService(repositories.Applications, repositories.Jobs, repositories.Users)
+	applicationService := service.NewApplicationService(repositories.Applications, repositories.Jobs, repositories.Users, repositories.Notifications)
 	employerService := service.NewEmployerService(repositories.Employers, repositories.Jobs, authService)
 	atsService := service.NewATSService(repositories.ATS, repositories.Notifications)
+	mockWhatsAppSender := service.NewMockWhatsAppSender()
+	notificationWorkerService := service.NewNotificationWorkerService(
+		repositories.Notifications,
+		mockWhatsAppSender,
+		service.NotificationWorkerConfig{
+			WorkerCount:  cfg.NotificationWorker.Count,
+			PollInterval: time.Duration(cfg.NotificationWorker.PollIntervalSeconds) * time.Second,
+			BatchSize:    10,
+		},
+	)
+	notificationQueryService := service.NewNotificationQueryService(repositories.Notifications)
+	conversationStateService := service.NewRedisConversationStateService(redisClient)
+	statusOTPService := service.NewRedisStatusOTPService(redisClient, cfg.JWTSecret)
+	whatsAppBotService := service.NewWhatsAppBotService(repositories.Users, applicationService, jobService, identityVerificationService, referralService, conversationStateService, statusOTPService, mockWhatsAppSender)
 
 	workerHandler := handler.NewWorkerHandler(workerService)
 	identityVerificationHandler := handler.NewIdentityVerificationHandler(identityVerificationService)
@@ -64,36 +81,62 @@ func main() {
 	applicationHandler := handler.NewApplicationHandler(applicationService)
 	employerHandler := handler.NewEmployerHandler(employerService)
 	atsHandler := handler.NewATSHandler(atsService)
+	devHandler := handler.NewDevHandler(notificationWorkerService, notificationQueryService, conversationStateService, statusOTPService, referralService)
+	whatsAppHandler := handler.NewWhatsAppHandler(cfg.WhatsAppVerifyToken, whatsAppBotService)
+	referralHandler := handler.NewReferralHandler(referralService)
+
+	if cfg.NotificationWorker.Enabled {
+		notificationWorkerService.Start(ctx)
+	}
 
 	router := gin.New()
-	router.Use(appmiddleware.RequestLogger())
+	metrics := appmiddleware.NewMetrics()
+	publicLimiter := appmiddleware.NewRateLimiter(120, time.Minute)
+	authLimiter := appmiddleware.NewRateLimiter(10, time.Minute)
+	otpLimiter := appmiddleware.NewRateLimiter(12, time.Minute)
+	webhookLimiter := appmiddleware.NewRateLimiter(120, time.Minute)
+
+	router.Use(appmiddleware.RequestID())
+	router.Use(appmiddleware.SecureHeaders())
+	router.Use(appmiddleware.CORS(cfg.CORSAllowedOrigins, cfg.IsDevelopment()))
+	router.Use(metrics.Middleware())
+	router.Use(appmiddleware.RequestLogger(cfg.AppEnv))
 	router.Use(appmiddleware.JSONRecovery())
 	router.Use(appmiddleware.JSONErrorHandler())
 
 	router.GET("/health", healthHandler.Check)
+	router.GET("/ready", healthHandler.Ready)
+	router.GET("/live", healthHandler.Live)
+	router.GET("/metrics", metrics.Handler)
 
 	api := router.Group("/api/v1")
 	{
-		api.POST("/workers", workerHandler.Create)
-		api.GET("/workers/:id", workerHandler.GetByID)
+		api.POST("/workers", publicLimiter.Middleware("workers-create"), workerHandler.Create)
+		api.GET("/workers/:id", publicLimiter.Middleware("workers-read"), workerHandler.GetByID)
 		api.PATCH("/workers/:id/profile", workerHandler.UpdateProfile)
+		api.GET("/workers/:id/referral", referralHandler.GetReferral)
+		api.GET("/workers/:id/referrals", referralHandler.ListReferrals)
+		api.GET("/workers/:id/referral-transactions", referralHandler.ListTransactions)
 
-		api.POST("/workers/:id/identity/aadhaar/start", identityVerificationHandler.StartAadhaar)
-		api.POST("/workers/:id/identity/aadhaar/verify", identityVerificationHandler.VerifyAadhaar)
-		api.POST("/workers/:id/identity/document", identityVerificationHandler.MarkDocumentUploaded)
-		api.POST("/workers/:id/identity/skip", identityVerificationHandler.MarkSkipped)
+		api.POST("/workers/:id/identity/aadhaar/start", otpLimiter.Middleware("aadhaar-start"), identityVerificationHandler.StartAadhaar)
+		api.POST("/workers/:id/identity/aadhaar/verify", otpLimiter.Middleware("aadhaar-verify"), identityVerificationHandler.VerifyAadhaar)
+		api.POST("/workers/:id/identity/document", otpLimiter.Middleware("document-verify"), identityVerificationHandler.MarkDocumentUploaded)
+		api.POST("/workers/:id/identity/skip", otpLimiter.Middleware("identity-skip"), identityVerificationHandler.MarkSkipped)
 		api.GET("/workers/:id/identity/latest", identityVerificationHandler.GetLatest)
 
-		api.GET("/jobs", jobHandler.ListActive)
-		api.GET("/jobs/:id", jobHandler.GetByID)
+		api.GET("/jobs", publicLimiter.Middleware("jobs-list"), jobHandler.ListActive)
+		api.GET("/jobs/:id", publicLimiter.Middleware("jobs-read"), jobHandler.GetByID)
 
-		api.POST("/applications", applicationHandler.Create)
+		api.POST("/applications", publicLimiter.Middleware("applications-create"), applicationHandler.Create)
 		api.GET("/applications/:id", applicationHandler.GetByID)
 		api.POST("/applications/:id/interview/select-slot", atsHandler.SelectInterviewSlot)
 		api.GET("/workers/:id/applications", applicationHandler.ListByWorker)
 
-		api.POST("/employers/register", employerHandler.Register)
-		api.POST("/employers/login", employerHandler.Login)
+		api.POST("/employers/register", authLimiter.Middleware("employer-register"), employerHandler.Register)
+		api.POST("/employers/login", authLimiter.Middleware("employer-login"), employerHandler.Login)
+
+		api.GET("/whatsapp/webhook", whatsAppHandler.VerifyWebhook)
+		api.POST("/whatsapp/webhook", webhookLimiter.Middleware("whatsapp-webhook"), whatsAppHandler.ReceiveWebhook)
 
 		employerRoutes := api.Group("")
 		employerRoutes.Use(appmiddleware.EmployerAuth(authService))
@@ -111,6 +154,20 @@ func main() {
 			employerRoutes.PATCH("/employer/applications/:id/status", atsHandler.UpdateApplicationStatus)
 			employerRoutes.POST("/employer/applications/:id/interview/direct", atsHandler.ScheduleDirectInterview)
 			employerRoutes.POST("/employer/applications/:id/interview/slots", atsHandler.CreateInterviewSlots)
+		}
+
+		if cfg.IsDevelopment() {
+			devRoutes := api.Group("/dev")
+			{
+				devRoutes.GET("/notifications", devHandler.ListNotifications)
+				devRoutes.POST("/notifications/process-once", devHandler.ProcessNotificationsOnce)
+				devRoutes.POST("/redis/state", devHandler.SetRedisState)
+				devRoutes.GET("/redis/state/:phone", devHandler.GetRedisState)
+				devRoutes.DELETE("/redis/state/:phone", devHandler.DeleteRedisState)
+				devRoutes.POST("/status-otp/generate", devHandler.GenerateStatusOTP)
+				devRoutes.POST("/status-otp/verify", devHandler.VerifyStatusOTP)
+				devRoutes.POST("/referrals/process-payouts", devHandler.ProcessReferralPayouts)
+			}
 		}
 	}
 
@@ -139,6 +196,7 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
+	stopRuntime()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

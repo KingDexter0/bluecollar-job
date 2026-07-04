@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"bluecollarjob/internal/models"
 	"bluecollarjob/internal/repository"
@@ -13,7 +14,7 @@ func TestEmployerServiceGrowthTierActiveJobLimit(t *testing.T) {
 	ctx := context.Background()
 	employers := &fakeEmployerRepository{tier: models.SubscriptionTierGrowth}
 	jobs := &fakeJobRepository{activeCount: 7}
-	service := NewEmployerService(employers, jobs, NewAuthService("test-secret", "test"))
+	service := NewEmployerService(employers, jobs, NewAuthService("test-secret", "test", 24*time.Hour))
 
 	_, err := service.CreateJob(ctx, "employer-1", validEmployerJobInput(true))
 	if !errors.Is(err, ErrConflict) {
@@ -25,7 +26,7 @@ func TestEmployerServiceEnterpriseAllowsUnlimitedJobs(t *testing.T) {
 	ctx := context.Background()
 	employers := &fakeEmployerRepository{tier: models.SubscriptionTierEnterprise}
 	jobs := &fakeJobRepository{activeCount: 100}
-	service := NewEmployerService(employers, jobs, NewAuthService("test-secret", "test"))
+	service := NewEmployerService(employers, jobs, NewAuthService("test-secret", "test", 24*time.Hour))
 
 	job, err := service.CreateJob(ctx, "employer-1", validEmployerJobInput(true))
 	if err != nil {
@@ -64,7 +65,7 @@ func (r *fakeEmployerRepository) GetEmployerByID(ctx context.Context, id string)
 }
 
 func (r *fakeEmployerRepository) GetEmployerByEmail(ctx context.Context, email string) (*models.Employer, error) {
-	hash, _ := NewAuthService("test-secret", "test").HashPassword("password")
+	hash, _ := NewAuthService("test-secret", "test", 24*time.Hour).HashPassword("password")
 	return &models.Employer{ID: "employer-1", Email: email, PasswordHash: hash}, nil
 }
 

@@ -4,9 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -23,6 +25,7 @@ type PostgresRepositories struct {
 	Applications          ApplicationRepository
 	ATS                   ATSRepository
 	Notifications         NotificationRepository
+	Referrals             ReferralRepository
 }
 
 func NewPostgresRepositories(db *pgxpool.Pool) *PostgresRepositories {
@@ -34,6 +37,7 @@ func NewPostgresRepositories(db *pgxpool.Pool) *PostgresRepositories {
 		Applications:          NewPostgresApplicationRepository(db),
 		ATS:                   NewPostgresATSRepository(db),
 		Notifications:         NewPostgresNotificationRepository(db),
+		Referrals:             NewPostgresReferralRepository(db),
 	}
 }
 
@@ -47,6 +51,14 @@ func mapNotFound(err error) error {
 		return ErrNotFound
 	}
 	return err
+}
+
+func mapPostgresError(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return ErrConflict
+	}
+	return mapNotFound(err)
 }
 
 func stringPtr(value sql.NullString) *string {
@@ -104,4 +116,8 @@ func normalizeOffset(offset int) int {
 		return 0
 	}
 	return offset
+}
+
+func argPosition(position int) string {
+	return strconv.Itoa(position)
 }

@@ -54,7 +54,7 @@ func TestEmployerHandlerLogin(t *testing.T) {
 
 func TestEmployerAuthMiddlewareWithoutToken(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	auth := service.NewAuthService("test-secret", "test")
+	auth := service.NewAuthService("test-secret", "test", 24*time.Hour)
 	router := gin.New()
 	router.GET("/protected", appmiddleware.EmployerAuth(auth), func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"ok": true})
@@ -71,7 +71,7 @@ func TestEmployerAuthMiddlewareWithoutToken(t *testing.T) {
 
 func TestEmployerAuthMiddlewareWithToken(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	auth := service.NewAuthService("test-secret", "test")
+	auth := service.NewAuthService("test-secret", "test", 24*time.Hour)
 	token, err := auth.GenerateEmployerToken("employer-1")
 	if err != nil {
 		t.Fatalf("generate token: %v", err)

@@ -31,7 +31,7 @@ func NewPostgresEmployerRepository(db *pgxpool.Pool) *PostgresEmployerRepository
 }
 
 func (r *PostgresEmployerRepository) CreateEmployer(ctx context.Context, employer *models.Employer) (*models.Employer, error) {
-	return scanEmployer(r.db.QueryRow(ctx, `
+	employerRecord, err := scanEmployer(r.db.QueryRow(ctx, `
 		INSERT INTO employers (
 			company_name,
 			contact_name,
@@ -53,6 +53,10 @@ func (r *PostgresEmployerRepository) CreateEmployer(ctx context.Context, employe
 		nullableString(employer.State),
 		employer.IsVerified,
 	))
+	if err != nil {
+		return nil, mapPostgresError(err)
+	}
+	return employerRecord, nil
 }
 
 func (r *PostgresEmployerRepository) GetEmployerByID(ctx context.Context, id string) (*models.Employer, error) {

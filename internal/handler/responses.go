@@ -37,7 +37,7 @@ func writeServiceError(c *gin.Context, err error) {
 		writeError(c, http.StatusNotFound, "not_found", "resource not found")
 	case errors.Is(err, service.ErrInvalidInput):
 		writeError(c, http.StatusBadRequest, "invalid_request", err.Error())
-	case errors.Is(err, service.ErrConflict):
+	case errors.Is(err, repository.ErrConflict), errors.Is(err, service.ErrConflict):
 		writeError(c, http.StatusConflict, "conflict", err.Error())
 	default:
 		writeError(c, http.StatusInternalServerError, "internal_server_error", "internal server error")
@@ -276,5 +276,51 @@ func newInterviewSlotResponse(slot models.InterviewSlot) interviewSlotResponse {
 		Status:          slot.Status,
 		LockedUntil:     slot.LockedUntil,
 		ConfirmedAt:     slot.ConfirmedAt,
+	}
+}
+
+type referralResponse struct {
+	ID             string  `json:"id"`
+	ReferrerUserID string  `json:"referrer_user_id"`
+	ReferredUserID *string `json:"referred_user_id,omitempty"`
+	ReferralCode   string  `json:"referral_code"`
+	CreatedAt      any     `json:"created_at"`
+	ConvertedAt    any     `json:"converted_at,omitempty"`
+}
+
+func newReferralResponse(referral models.Referral) referralResponse {
+	return referralResponse{
+		ID:             referral.ID,
+		ReferrerUserID: referral.ReferrerUserID,
+		ReferredUserID: referral.ReferredUserID,
+		ReferralCode:   referral.ReferralCode,
+		CreatedAt:      referral.CreatedAt,
+		ConvertedAt:    referral.ConvertedAt,
+	}
+}
+
+type referralTransactionResponse struct {
+	ID                string  `json:"id"`
+	ReferralID        string  `json:"referral_id"`
+	UserID            string  `json:"user_id"`
+	AmountPaise       int     `json:"amount_paise"`
+	Currency          string  `json:"currency"`
+	Status            string  `json:"status"`
+	ExternalReference *string `json:"external_reference,omitempty"`
+	CreatedAt         any     `json:"created_at"`
+	PaidAt            any     `json:"paid_at,omitempty"`
+}
+
+func newReferralTransactionResponse(transaction models.ReferralTransaction) referralTransactionResponse {
+	return referralTransactionResponse{
+		ID:                transaction.ID,
+		ReferralID:        transaction.ReferralID,
+		UserID:            transaction.UserID,
+		AmountPaise:       transaction.AmountPaise,
+		Currency:          transaction.Currency,
+		Status:            transaction.Status,
+		ExternalReference: transaction.ExternalReference,
+		CreatedAt:         transaction.CreatedAt,
+		PaidAt:            transaction.PaidAt,
 	}
 }

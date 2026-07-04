@@ -9,6 +9,9 @@ Backend foundation for a blue-collar hiring platform that will support worker on
 - PostgreSQL
 - Redis
 - Docker Compose
+- Next.js
+- TypeScript
+- Tailwind CSS
 
 ## Project Structure
 
@@ -21,6 +24,7 @@ Backend foundation for a blue-collar hiring platform that will support worker on
 - `internal/service`: business logic
 - `internal/handler`: HTTP handlers
 - `internal/middleware`: request middleware
+- `frontend`: Next.js employer dashboard and local demo UI
 - `000001_init_schema.*.sql`: initial PostgreSQL migration files
 - `docs`: project architecture notes
 - `docs_api.md`: REST API curl examples
@@ -80,6 +84,60 @@ Docker Compose starts:
 - Redis
 
 The initial migration SQL is mounted into Postgres and runs when the database volume is first created.
+
+## Frontend Website And Dashboard
+
+The demo frontend lives in `frontend` and connects to the Go API through `NEXT_PUBLIC_API_BASE_URL`.
+
+Create the frontend environment file:
+
+```bash
+cd frontend
+cp .env.example .env.local
+```
+
+Default local value:
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8081
+```
+
+Install and run:
+
+```bash
+npm install
+npm run dev
+```
+
+Open `http://localhost:3000`.
+
+Build check:
+
+```bash
+npm run build
+```
+
+Implemented frontend routes:
+
+- `/`: public landing page
+- `/employer/register`: employer registration
+- `/employer/login`: employer login
+- `/employer/dashboard`: employer summary dashboard
+- `/employer/jobs`: employer job management
+- `/employer/applications`: ATS, filters, status updates, and interview scheduling
+- `/worker/demo`: local worker onboarding, verification, job browsing, and application demo
+- `/dev/notifications`: local notification worker preview
+
+Recommended demo flow:
+
+1. Start backend: `docker compose up --build`
+2. Start frontend from `frontend`: `npm run dev`
+3. Register an employer
+4. Create a job
+5. Create a worker from `/worker/demo`
+6. Apply the worker to the job
+7. View the application in `/employer/applications`
+8. Update status or schedule an interview
 
 ## Database Migrations
 
@@ -238,3 +296,29 @@ Example healthy response:
 ```
 
 If PostgreSQL or Redis is unavailable, the endpoint returns `503` with the unavailable component marked in the response.
+
+Additional production probes:
+
+```bash
+curl http://localhost:8080/live
+curl http://localhost:8080/ready
+curl http://localhost:8080/metrics
+```
+
+## Production Readiness
+
+See `docs_production.md` for production environment variables, migration commands, Docker production builds, Kubernetes/Linode LKE deployment notes, SSL setup, security checklist, backup checklist, rollback checklist, and smoke testing.
+
+Migration commands:
+
+```bash
+go run ./cmd/migrate status
+go run ./cmd/migrate up
+go run ./cmd/migrate down
+```
+
+Production-like Docker build:
+
+```bash
+docker compose -f docker-compose.prod.yml build
+```

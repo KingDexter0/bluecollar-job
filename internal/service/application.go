@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 
 	"bluecollarjob/internal/models"
 	"bluecollarjob/internal/repository"
@@ -20,21 +21,24 @@ type CreateApplicationInput struct {
 }
 
 type applicationService struct {
-	applications repository.ApplicationRepository
-	jobs         repository.JobRepository
-	users        repository.UserRepository
+	applications  repository.ApplicationRepository
+	jobs          repository.JobRepository
+	users         repository.UserRepository
+	notifications repository.NotificationRepository
 }
 
-func NewApplicationService(applications repository.ApplicationRepository, jobs repository.JobRepository, users repository.UserRepository) ApplicationService {
+func NewApplicationService(applications repository.ApplicationRepository, jobs repository.JobRepository, users repository.UserRepository, notifications repository.NotificationRepository) ApplicationService {
 	return &applicationService{
-		applications: applications,
-		jobs:         jobs,
-		users:        users,
+		applications:  applications,
+		jobs:          jobs,
+		users:         users,
+		notifications: notifications,
 	}
 }
 
 func (s *applicationService) CreateApplication(ctx context.Context, input CreateApplicationInput) (*models.Application, error) {
-	if _, err := s.users.GetUserByID(ctx, input.UserID); err != nil {
+	user, err := s.users.GetUserByID(ctx, input.UserID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -48,13 +52,43 @@ func (s *applicationService) CreateApplication(ctx context.Context, input Create
 		source = "api"
 	}
 
-	return s.applications.CreateApplication(ctx, &models.Application{
+	application, err := s.applications.CreateApplication(ctx, &models.Application{
 		UserID:     input.UserID,
 		JobID:      input.JobID,
 		EmployerID: job.EmployerID,
 		Status:     models.ApplicationStatusApplied,
 		Source:     source,
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	if s.notifications != nil {
+		payload, err := json.Marshal(map[string]any{
+			"application_id": application.ID,
+			"job_id":         application.JobID,
+			"job_title":      job.Title,
+			"job_role":       job.Role,
+			"status":         application.Status,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if _, err := s.notifications.CreateNotificationEvent(ctx, &models.NotificationEvent{
+			UserID:        &application.UserID,
+			EmployerID:    &application.EmployerID,
+			ApplicationID: &application.ID,
+			Channel:       "whatsapp",
+			EventType:     "application_submitted",
+			Recipient:     user.PhoneNumber,
+			Payload:       payload,
+			Status:        models.NotificationStatusPending,
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	return application, nil
 }
 
 func (s *applicationService) GetApplicationByID(ctx context.Context, id string) (*models.Application, error) {

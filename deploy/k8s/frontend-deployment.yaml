@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bluecollar-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: bluecollar-frontend
+  template:
+    metadata:
+      labels:
+        app: bluecollar-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: registry.example.com/bluecollar-frontend:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NEXT_PUBLIC_API_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: bluecollar-config
+                  key: NEXT_PUBLIC_API_BASE_URL
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

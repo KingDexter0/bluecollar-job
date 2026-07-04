@@ -53,11 +53,6 @@ func (h *WorkerHandler) Create(c *gin.Context) {
 		writeError(c, http.StatusBadRequest, "missing_full_name", "full_name is required")
 		return
 	}
-	if request.ReferralCode == "" {
-		writeError(c, http.StatusBadRequest, "missing_referral_code", "referral_code is required")
-		return
-	}
-
 	worker, err := h.workers.CreateWorker(c.Request.Context(), service.CreateWorkerInput{
 		PhoneNumber:        request.PhoneNumber,
 		FullName:           request.FullName,

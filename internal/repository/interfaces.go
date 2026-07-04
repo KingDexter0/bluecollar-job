@@ -83,4 +83,27 @@ type ATSRepository interface {
 
 type NotificationRepository interface {
 	CreateNotificationEvent(ctx context.Context, event *models.NotificationEvent) (*models.NotificationEvent, error)
+	ClaimPendingNotificationEvents(ctx context.Context, limit int) ([]models.NotificationEvent, error)
+	ListNotificationEvents(ctx context.Context, filters NotificationEventFilters) ([]models.NotificationEvent, error)
+	MarkNotificationEventSent(ctx context.Context, id string) (*models.NotificationEvent, error)
+	MarkNotificationEventFailed(ctx context.Context, id string, reason string) (*models.NotificationEvent, error)
+}
+
+type NotificationEventFilters struct {
+	Status    *models.NotificationStatus
+	EventType *string
+	Limit     int
+	Offset    int
+}
+
+type ReferralRepository interface {
+	CreateReferral(ctx context.Context, referral *models.Referral) (*models.Referral, error)
+	GetReferralByReferredUserID(ctx context.Context, referredUserID string) (*models.Referral, error)
+	ListReferralsByReferrer(ctx context.Context, referrerUserID string, limit, offset int) ([]models.Referral, error)
+	ListReferralTransactionsByUser(ctx context.Context, userID string, limit, offset int) ([]models.ReferralTransaction, error)
+	MarkReferralConverted(ctx context.Context, id string) (*models.Referral, error)
+	CreateReferralTransaction(ctx context.Context, transaction *models.ReferralTransaction) (*models.ReferralTransaction, error)
+	ClaimPendingReferralTransactions(ctx context.Context, limit int) ([]models.ReferralTransaction, error)
+	MarkReferralTransactionPaid(ctx context.Context, id, externalReference string) (*models.ReferralTransaction, error)
+	MarkReferralTransactionFailed(ctx context.Context, id, reason string) (*models.ReferralTransaction, error)
 }

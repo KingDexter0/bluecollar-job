@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bluecollar-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: bluecollar-api
+  template:
+    metadata:
+      labels:
+        app: bluecollar-api
+    spec:
+      containers:
+        - name: api
+          image: registry.example.com/bluecollar-api:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: bluecollar-config
+            - secretRef:
+                name: bluecollar-app-secrets
+            - secretRef:
+                name: bluecollar-postgres-secret
+            - secretRef:
+                name: bluecollar-redis-secret
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

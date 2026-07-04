@@ -1,4 +1,7 @@
 .env
+frontend/.env.local
+frontend/node_modules/
+frontend/.next/
 .idea/
 .vscode/
 bin/
@@ -6,3 +9,4 @@ tmp/
 *.exe
 *.test
 coverage.out
+*.log

@@ -138,6 +138,22 @@ func (r *fakeNotificationRepository) CreateNotificationEvent(ctx context.Context
 	return event, nil
 }
 
+func (r *fakeNotificationRepository) ClaimPendingNotificationEvents(ctx context.Context, limit int) ([]models.NotificationEvent, error) {
+	return nil, nil
+}
+
+func (r *fakeNotificationRepository) ListNotificationEvents(ctx context.Context, filters repository.NotificationEventFilters) ([]models.NotificationEvent, error) {
+	return nil, nil
+}
+
+func (r *fakeNotificationRepository) MarkNotificationEventSent(ctx context.Context, id string) (*models.NotificationEvent, error) {
+	return &models.NotificationEvent{ID: id, Status: models.NotificationStatusSent}, nil
+}
+
+func (r *fakeNotificationRepository) MarkNotificationEventFailed(ctx context.Context, id string, reason string) (*models.NotificationEvent, error) {
+	return &models.NotificationEvent{ID: id, Status: models.NotificationStatusFailed, LastError: &reason}, nil
+}
+
 func fakeATSApplication(status models.ApplicationStatus) models.ApplicationATS {
 	return models.ApplicationATS{
 		Application: models.Application{

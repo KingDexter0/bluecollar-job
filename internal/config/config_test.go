@@ -24,12 +24,23 @@ func TestProductionValidationAcceptsRequiredSettings(t *testing.T) {
 
 	cfg := &Config{
 		AppEnv:             "production",
+		AppPort:            "8080",
 		CORSAllowedOrigins: []string{"https://app.example.com"},
 		DatabaseURL:        "postgres://example",
+		FrontendURL:        "https://app.example.com",
 		Redis: RedisConfig{
-			Addr: "redis:6379",
+			Addr:     "redis:6379",
+			Password: "redis-password",
 		},
-		JWTSecret: "this-is-a-long-random-production-secret",
+		JWTSecret:           "this-is-a-long-random-production-secret",
+		AdminToken:          "this-is-a-long-random-admin-token",
+		WhatsAppVerifyToken: "whatsapp-verify-token",
+		ObjectStorage: ObjectStorageConfig{
+			Bucket: "bluecollar-documents",
+		},
+		DocumentUpload: DocumentUploadConfig{
+			Enabled: true,
+		},
 	}
 
 	if err := cfg.Validate(); err != nil {

@@ -19,7 +19,7 @@ const migrationVersion = "000001_init_schema"
 
 func main() {
 	if len(os.Args) < 2 {
-		log.Fatalf("usage: go run ./cmd/migrate [up|down|status]")
+		log.Fatalf("usage: go run ./cmd/migrate [up|down|status|baseline]")
 	}
 
 	cfg, err := config.Load()
@@ -47,6 +47,8 @@ func main() {
 		runMigration(ctx, db, false)
 	case "status":
 		printStatus(ctx, db)
+	case "baseline":
+		baseline(ctx, db, cfg)
 	default:
 		log.Fatalf("unknown migration command %q", os.Args[1])
 	}
@@ -100,9 +102,53 @@ func printStatus(ctx context.Context, db execer) {
 	fmt.Printf("%s %s\n", migrationVersion, status)
 }
 
+func baseline(ctx context.Context, db execer, cfg *config.Config) {
+	if cfg.IsProduction() || cfg.AppEnv == "staging" {
+		if os.Getenv("ALLOW_PRODUCTION_BASELINE") != "true" {
+			log.Fatalf("baseline is blocked in staging/production unless ALLOW_PRODUCTION_BASELINE=true")
+		}
+	}
+	if isApplied(ctx, db) {
+		fmt.Printf("%s already applied\n", migrationVersion)
+		return
+	}
+
+	requiredTables := []string{
+		"users",
+		"employers",
+		"jobs",
+		"applications",
+		"interview_slots",
+		"referrals",
+		"referral_transactions",
+		"subscriptions",
+		"notification_events",
+	}
+	for _, table := range requiredTables {
+		if !tableExists(ctx, db, table) {
+			log.Fatalf("cannot baseline: required table %s does not exist", table)
+		}
+	}
+	if _, err := db.Exec(ctx, `INSERT INTO schema_migrations (version) VALUES ($1) ON CONFLICT (version) DO NOTHING`, migrationVersion); err != nil {
+		log.Fatalf("record baseline: %v", err)
+	}
+	fmt.Printf("%s baselined\n", migrationVersion)
+}
+
 func isApplied(ctx context.Context, db execer) bool {
 	var exists bool
 	err := db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = $1)`, migrationVersion).Scan(&exists)
+	return err == nil && exists
+}
+
+func tableExists(ctx context.Context, db execer, table string) bool {
+	var exists bool
+	err := db.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM information_schema.tables
+			WHERE table_schema = 'public' AND table_name = $1
+		)`, table).Scan(&exists)
 	return err == nil && exists
 }
 

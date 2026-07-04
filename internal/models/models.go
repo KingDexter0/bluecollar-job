@@ -146,11 +146,11 @@ type Application struct {
 }
 
 type InterviewSlot struct {
-	ID            string
-	ApplicationID string
-	StartsAt      time.Time
-	EndsAt        time.Time
-	Timezone      string
+	ID              string
+	ApplicationID   string
+	StartsAt        time.Time
+	EndsAt          time.Time
+	Timezone        string
 	FactoryLocation *string
 	GoogleMapsURL   *string
 	Status          InterviewSlotStatus
@@ -220,4 +220,23 @@ type ApplicationATS struct {
 	WorkerPreferredZone    *string
 	JobTitle               string
 	JobRole                string
+}
+
+type AdminSummary struct {
+	TotalWorkers              int64
+	TotalEmployers            int64
+	TotalJobs                 int64
+	TotalApplications         int64
+	TotalReferrals            int64
+	TotalNotificationEvents   int64
+	PendingNotifications      int64
+	FailedNotifications       int64
+	CashbackPending           int64
+	CashbackPaid              int64
+	CashbackFailed            int64
+	InterviewsScheduled       int64
+	ApplicationsByStatus      map[ApplicationStatus]int64
+	WorkersByVerificationTier map[VerificationTier]int64
+	JobsByActiveStatus        map[string]int64
+	ReferralsByPayoutStatus   map[string]int64
 }

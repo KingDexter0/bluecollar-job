@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { clearToken, getToken } from "@/lib/api";
 
+const showDevLinks = process.env.NEXT_PUBLIC_APP_ENV !== "production";
+
 export function Navbar() {
 	const router = useRouter();
 	const [hasToken, setHasToken] = useState(false);
@@ -24,7 +26,8 @@ export function Navbar() {
           <Link href="/employer/jobs">Jobs</Link>
           <Link href="/employer/applications">ATS</Link>
           <Link href="/worker/demo">Worker Demo</Link>
-          <Link href="/dev/notifications">Dev</Link>
+          <Link href="/admin">Admin</Link>
+          {showDevLinks ? <Link href="/dev/notifications">Dev</Link> : null}
         </nav>
         <div className="flex items-center gap-2">
           {hasToken ? (

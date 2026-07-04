@@ -15,15 +15,18 @@ type Config struct {
 	AppPort             string
 	CORSAllowedOrigins  []string
 	DatabaseURL         string
+	FrontendURL         string
 	Redis               RedisConfig
 	AadhaarGateway      AadhaarGatewayConfig
 	NotificationWorker  NotificationWorkerConfig
 	JWTTTL              time.Duration
 	JWTSecret           string
 	JWTIssuer           string
+	AdminToken          string
 	WhatsAppVerifyToken string
 	WhatsAppAccessToken string
 	ObjectStorage       ObjectStorageConfig
+	DocumentUpload      DocumentUploadConfig
 }
 
 type RedisConfig struct {
@@ -55,6 +58,10 @@ type ObjectStorageConfig struct {
 	SecretAccessKey string
 }
 
+type DocumentUploadConfig struct {
+	Enabled bool
+}
+
 func Load() (*Config, error) {
 	_ = godotenv.Load()
 
@@ -80,6 +87,7 @@ func Load() (*Config, error) {
 		AppPort:            getEnv("APP_PORT", "8080"),
 		CORSAllowedOrigins: parseCSV(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")),
 		DatabaseURL:        os.Getenv("DATABASE_URL"),
+		FrontendURL:        getEnv("FRONTEND_URL", "http://localhost:3000"),
 		Redis: RedisConfig{
 			Addr:     getEnv("REDIS_ADDR", "localhost:6379"),
 			Password: os.Getenv("REDIS_PASSWORD"),
@@ -99,6 +107,7 @@ func Load() (*Config, error) {
 		JWTTTL:              time.Duration(jwtTTLHours) * time.Hour,
 		JWTSecret:           os.Getenv("JWT_SECRET"),
 		JWTIssuer:           getEnv("JWT_ISSUER", "bluecollarjob"),
+		AdminToken:          getEnv("ADMIN_TOKEN", "local-admin-token"),
 		WhatsAppVerifyToken: os.Getenv("WHATSAPP_VERIFY_TOKEN"),
 		WhatsAppAccessToken: os.Getenv("WHATSAPP_ACCESS_TOKEN"),
 		ObjectStorage: ObjectStorageConfig{
@@ -109,6 +118,9 @@ func Load() (*Config, error) {
 			Endpoint:        os.Getenv("OBJECT_STORAGE_ENDPOINT"),
 			AccessKeyID:     os.Getenv("OBJECT_STORAGE_ACCESS_KEY_ID"),
 			SecretAccessKey: os.Getenv("OBJECT_STORAGE_SECRET_ACCESS_KEY"),
+		},
+		DocumentUpload: DocumentUploadConfig{
+			Enabled: getEnv("DOCUMENT_UPLOAD_ENABLED", "true") == "true",
 		},
 	}
 
@@ -138,14 +150,32 @@ func (c *Config) Validate() error {
 		if strings.TrimSpace(os.Getenv("APP_ENV")) == "" {
 			return fmt.Errorf("APP_ENV is required in staging/production")
 		}
+		if strings.TrimSpace(c.AppPort) == "" {
+			return fmt.Errorf("APP_PORT is required in staging/production")
+		}
 		if len(c.CORSAllowedOrigins) == 0 {
 			return fmt.Errorf("CORS_ALLOWED_ORIGINS is required in staging/production")
+		}
+		if strings.TrimSpace(c.FrontendURL) == "" {
+			return fmt.Errorf("FRONTEND_URL is required in staging/production")
+		}
+		if strings.TrimSpace(c.WhatsAppVerifyToken) == "" {
+			return fmt.Errorf("WHATSAPP_VERIFY_TOKEN is required in staging/production")
+		}
+		if strings.TrimSpace(c.Redis.Password) == "" {
+			return fmt.Errorf("REDIS_PASSWORD is required in staging/production")
 		}
 		if len(c.JWTSecret) < 32 {
 			return fmt.Errorf("JWT_SECRET must be at least 32 characters in staging/production")
 		}
 		if isWeakSecret(c.JWTSecret) {
 			return fmt.Errorf("JWT_SECRET is too weak for staging/production")
+		}
+		if len(strings.TrimSpace(c.AdminToken)) < 32 {
+			return fmt.Errorf("ADMIN_TOKEN must be at least 32 characters in staging/production")
+		}
+		if c.DocumentUpload.Enabled && strings.TrimSpace(c.ObjectStorage.Bucket) == "" {
+			return fmt.Errorf("OBJECT_STORAGE_BUCKET is required in staging/production when document upload is enabled")
 		}
 	}
 	return nil

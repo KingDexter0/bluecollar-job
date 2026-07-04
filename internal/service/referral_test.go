@@ -281,6 +281,17 @@ func (r *referralRepository) ListReferralTransactionsByUser(ctx context.Context,
 	return transactions, nil
 }
 
+func (r *referralRepository) ListReferralTransactions(ctx context.Context, filters repository.ReferralTransactionFilters) ([]models.ReferralTransaction, error) {
+	var transactions []models.ReferralTransaction
+	for _, transaction := range r.transactions {
+		if filters.Status != nil && transaction.Status != *filters.Status {
+			continue
+		}
+		transactions = append(transactions, *transaction)
+	}
+	return transactions, nil
+}
+
 func (r *referralRepository) MarkReferralConverted(ctx context.Context, id string) (*models.Referral, error) {
 	referral, ok := r.referrals[id]
 	if !ok {

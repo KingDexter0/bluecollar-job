@@ -126,6 +126,7 @@ Implemented frontend routes:
 - `/employer/jobs`: employer job management
 - `/employer/applications`: ATS, filters, status updates, and interview scheduling
 - `/worker/demo`: local worker onboarding, verification, job browsing, and application demo
+- `/admin`: admin operations, analytics, notification visibility, and referral cashback visibility
 - `/dev/notifications`: local notification worker preview
 
 Recommended demo flow:
@@ -138,6 +139,14 @@ Recommended demo flow:
 6. Apply the worker to the job
 7. View the application in `/employer/applications`
 8. Update status or schedule an interview
+9. Open `/admin` with admin token `local-admin-token`
+10. Process mock notifications and referral payouts
+
+Local demo credentials and tokens:
+
+- Employer: register any demo employer from `/employer/register`, then log in from `/employer/login`.
+- Admin operations token: `local-admin-token`.
+- API base URL: `http://localhost:8081`.
 
 ## Database Migrations
 
@@ -274,6 +283,41 @@ Implemented employer routes:
 
 Growth tier employers can have a maximum of 7 active jobs. Enterprise tier employers can have unlimited active jobs.
 
+## Admin Operations
+
+The admin/operations panel is available at:
+
+```text
+http://localhost:3000/admin
+```
+
+Backend admin routes require:
+
+```bash
+X-Admin-Token: local-admin-token
+```
+
+Implemented admin routes:
+
+- `GET /api/v1/admin/summary`
+- `GET /api/v1/admin/notifications?status=Pending&event_type=interview_scheduled`
+- `GET /api/v1/admin/referral-transactions?status=Pending`
+- `POST /api/v1/admin/referrals/process-payouts`
+
+The admin API returns aggregate counts and safe preview rows only. It does not expose password hashes, Aadhaar hashes, raw Aadhaar numbers, OTPs, or internal document paths.
+
+Run the full local demo script:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\demo-flow.ps1 -ApiBaseUrl http://localhost:8081
+```
+
+Run the smoke test:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-test.ps1 -ApiBaseUrl http://localhost:8081
+```
+
 ## Health Check
 
 ```bash
@@ -322,3 +366,18 @@ Production-like Docker build:
 ```bash
 docker compose -f docker-compose.prod.yml build
 ```
+
+## Troubleshooting
+
+- If PowerShell blocks scripts, run with `-ExecutionPolicy Bypass` as shown above.
+- If `/health` is unhealthy, check `docker compose ps` and `docker compose logs api postgres redis`.
+- If frontend API calls fail, confirm `NEXT_PUBLIC_API_BASE_URL=http://localhost:8081`.
+- If admin returns `401`, save the correct admin token in `/admin`.
+- If migrations show the initial migration as pending on an old local volume, recreate the local database volume or apply migrations on a fresh database.
+
+## Known Limitations
+
+- Real WhatsApp/OpenWA/Meta integration is pending.
+- Real Aadhaar/e-KYC integration is pending.
+- Real UPI/payout integration is pending.
+- Production deployment to Linode/Kubernetes is pending.

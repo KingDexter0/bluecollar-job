@@ -462,6 +462,52 @@ curl -X POST http://localhost:8081/api/v1/dev/referrals/process-payouts \
   }'
 ```
 
+## Admin: Summary
+
+Requires `X-Admin-Token`. Local demo token is `local-admin-token`.
+
+```bash
+curl http://localhost:8081/api/v1/admin/summary \
+  -H "X-Admin-Token: local-admin-token"
+```
+
+Returns aggregate counts and analytics only:
+
+- total workers, employers, jobs, applications, referrals, notification events
+- pending/failed notifications
+- cashback pending/paid/failed
+- applications by status
+- workers by verification tier
+- jobs active/inactive
+- referrals by payout status
+
+Sensitive fields such as password hashes, Aadhaar hashes, raw Aadhaar, OTPs, and internal document paths are not returned.
+
+## Admin: Notification List
+
+```bash
+curl "http://localhost:8081/api/v1/admin/notifications?status=Pending&event_type=interview_scheduled&limit=20&offset=0" \
+  -H "X-Admin-Token: local-admin-token"
+```
+
+## Admin: Referral Cashback Transactions
+
+```bash
+curl "http://localhost:8081/api/v1/admin/referral-transactions?status=Pending&limit=20&offset=0" \
+  -H "X-Admin-Token: local-admin-token"
+```
+
+## Admin: Process Mock Referral Payouts
+
+```bash
+curl -X POST http://localhost:8081/api/v1/admin/referrals/process-payouts \
+  -H "Content-Type: application/json" \
+  -H "X-Admin-Token: local-admin-token" \
+  -d '{
+    "limit": 20
+  }'
+```
+
 ## WhatsApp Webhook Verification
 
 Set `WHATSAPP_VERIFY_TOKEN` in `.env`, then verify the webhook locally:

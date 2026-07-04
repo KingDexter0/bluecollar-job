@@ -101,9 +101,20 @@ type ReferralRepository interface {
 	GetReferralByReferredUserID(ctx context.Context, referredUserID string) (*models.Referral, error)
 	ListReferralsByReferrer(ctx context.Context, referrerUserID string, limit, offset int) ([]models.Referral, error)
 	ListReferralTransactionsByUser(ctx context.Context, userID string, limit, offset int) ([]models.ReferralTransaction, error)
+	ListReferralTransactions(ctx context.Context, filters ReferralTransactionFilters) ([]models.ReferralTransaction, error)
 	MarkReferralConverted(ctx context.Context, id string) (*models.Referral, error)
 	CreateReferralTransaction(ctx context.Context, transaction *models.ReferralTransaction) (*models.ReferralTransaction, error)
 	ClaimPendingReferralTransactions(ctx context.Context, limit int) ([]models.ReferralTransaction, error)
 	MarkReferralTransactionPaid(ctx context.Context, id, externalReference string) (*models.ReferralTransaction, error)
 	MarkReferralTransactionFailed(ctx context.Context, id, reason string) (*models.ReferralTransaction, error)
+}
+
+type ReferralTransactionFilters struct {
+	Status *string
+	Limit  int
+	Offset int
+}
+
+type AdminRepository interface {
+	GetSummary(ctx context.Context) (*models.AdminSummary, error)
 }

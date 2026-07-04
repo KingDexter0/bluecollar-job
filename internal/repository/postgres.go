@@ -26,6 +26,7 @@ type PostgresRepositories struct {
 	ATS                   ATSRepository
 	Notifications         NotificationRepository
 	Referrals             ReferralRepository
+	Admin                 AdminRepository
 }
 
 func NewPostgresRepositories(db *pgxpool.Pool) *PostgresRepositories {
@@ -38,6 +39,7 @@ func NewPostgresRepositories(db *pgxpool.Pool) *PostgresRepositories {
 		ATS:                   NewPostgresATSRepository(db),
 		Notifications:         NewPostgresNotificationRepository(db),
 		Referrals:             NewPostgresReferralRepository(db),
+		Admin:                 NewPostgresAdminRepository(db),
 	}
 }
 

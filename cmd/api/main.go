@@ -60,6 +60,7 @@ func main() {
 	applicationService := service.NewApplicationService(repositories.Applications, repositories.Jobs, repositories.Users, repositories.Notifications)
 	employerService := service.NewEmployerService(repositories.Employers, repositories.Jobs, authService)
 	atsService := service.NewATSService(repositories.ATS, repositories.Notifications)
+	adminService := service.NewAdminService(repositories.Admin, repositories.Referrals)
 	mockWhatsAppSender := service.NewMockWhatsAppSender()
 	notificationWorkerService := service.NewNotificationWorkerService(
 		repositories.Notifications,
@@ -82,6 +83,7 @@ func main() {
 	employerHandler := handler.NewEmployerHandler(employerService)
 	atsHandler := handler.NewATSHandler(atsService)
 	devHandler := handler.NewDevHandler(notificationWorkerService, notificationQueryService, conversationStateService, statusOTPService, referralService)
+	adminHandler := handler.NewAdminHandler(adminService, notificationQueryService, referralService)
 	whatsAppHandler := handler.NewWhatsAppHandler(cfg.WhatsAppVerifyToken, whatsAppBotService)
 	referralHandler := handler.NewReferralHandler(referralService)
 
@@ -137,6 +139,15 @@ func main() {
 
 		api.GET("/whatsapp/webhook", whatsAppHandler.VerifyWebhook)
 		api.POST("/whatsapp/webhook", webhookLimiter.Middleware("whatsapp-webhook"), whatsAppHandler.ReceiveWebhook)
+
+		adminRoutes := api.Group("/admin")
+		adminRoutes.Use(appmiddleware.AdminTokenAuth(cfg.AdminToken))
+		{
+			adminRoutes.GET("/summary", adminHandler.GetSummary)
+			adminRoutes.GET("/notifications", adminHandler.ListNotifications)
+			adminRoutes.GET("/referral-transactions", adminHandler.ListReferralTransactions)
+			adminRoutes.POST("/referrals/process-payouts", adminHandler.ProcessReferralPayouts)
+		}
 
 		employerRoutes := api.Group("")
 		employerRoutes.Use(appmiddleware.EmployerAuth(authService))

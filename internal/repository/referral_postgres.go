@@ -89,6 +89,33 @@ func (r *PostgresReferralRepository) ListReferralTransactionsByUser(ctx context.
 	return scanReferralTransactions(rows)
 }
 
+func (r *PostgresReferralRepository) ListReferralTransactions(ctx context.Context, filters ReferralTransactionFilters) ([]models.ReferralTransaction, error) {
+	conditions := []string{"1=1"}
+	args := []any{}
+	if filters.Status != nil && strings.TrimSpace(*filters.Status) != "" {
+		args = append(args, strings.TrimSpace(*filters.Status))
+		conditions = append(conditions, "status = $"+argPosition(len(args)))
+	}
+
+	args = append(args, normalizeLimit(filters.Limit), normalizeOffset(filters.Offset))
+	limitArg := argPosition(len(args) - 1)
+	offsetArg := argPosition(len(args))
+
+	rows, err := r.db.Query(ctx, `
+		SELECT `+referralTransactionColumns+`
+		FROM referral_transactions
+		WHERE `+strings.Join(conditions, " AND ")+`
+		ORDER BY created_at DESC
+		LIMIT $`+limitArg+` OFFSET $`+offsetArg,
+		args...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanReferralTransactions(rows)
+}
+
 func (r *PostgresReferralRepository) MarkReferralConverted(ctx context.Context, id string) (*models.Referral, error) {
 	return scanReferral(r.db.QueryRow(ctx, `
 		UPDATE referrals

@@ -91,6 +91,14 @@ export default function DevNotificationsPage() {
     loadNotifications(filters);
   }
 
+  if (process.env.NEXT_PUBLIC_APP_ENV === "production") {
+    return (
+      <DashboardLayout title="Dev Preview Disabled" subtitle="Development-only tools are hidden in production builds.">
+        <ErrorState message="Dev notification tools are disabled in production." />
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout title="Notification Dev Preview" subtitle="Local-only notification worker controls.">
       {error ? <ErrorState message={error} /> : null}

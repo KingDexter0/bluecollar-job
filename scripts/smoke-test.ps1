@@ -1,12 +1,14 @@
 param(
-  [string]$ApiBaseUrl = "http://localhost:8081"
+  [string]$ApiBaseUrl = "http://localhost:8081",
+  [string]$AdminToken = "local-admin-token"
 )
 
 $ErrorActionPreference = "Stop"
 
-function Invoke-Json($Method, $Path, $Body = $null, $Token = $null) {
+function Invoke-Json($Method, $Path, $Body = $null, $Token = $null, $AdminTokenValue = $null) {
   $headers = @{ "Content-Type" = "application/json" }
   if ($Token) { $headers.Authorization = "Bearer $Token" }
+  if ($AdminTokenValue) { $headers["X-Admin-Token"] = $AdminTokenValue }
   $params = @{
     Method = $Method
     Uri = "$ApiBaseUrl$Path"
@@ -70,5 +72,9 @@ Invoke-Json POST "/api/v1/employer/applications/$($application.application.id)/i
   factory_location = "Smoke Plant"
   google_maps_url = "https://maps.google.com/?q=Smoke+Plant"
 } $token | Out-Null
+
+Invoke-Json GET "/api/v1/admin/summary" $null $null $AdminToken | Out-Null
+Invoke-Json GET "/api/v1/admin/notifications?limit=5" $null $null $AdminToken | Out-Null
+Invoke-Json POST "/api/v1/admin/referrals/process-payouts" @{ limit = 10 } $null $AdminToken | Out-Null
 
 Write-Host "Smoke test passed."

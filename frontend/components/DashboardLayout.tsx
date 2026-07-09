@@ -7,7 +7,7 @@ export function DashboardLayout({ children, title, subtitle }: { children: React
       <Navbar />
       <div className="flex flex-col md:flex-row">
         <Sidebar />
-        <main className="w-full p-4 md:p-6">
+        <main className="min-w-0 w-full p-4 md:p-6">
           <div className="mb-5">
             <h1 className="text-2xl font-bold text-ink">{title}</h1>
             {subtitle ? <p className="mt-1 text-sm text-muted">{subtitle}</p> : null}

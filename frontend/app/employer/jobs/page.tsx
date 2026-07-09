@@ -166,7 +166,7 @@ export default function EmployerJobsPage() {
               <tr key={job.id}>
                 <Td>
                   <p className="font-semibold text-ink">{job.title}</p>
-                  <p className="text-xs text-muted">{job.role} · {job.openings} openings</p>
+                  <p className="text-xs text-muted">{job.role} - {job.openings} openings</p>
                 </Td>
                 <Td>{job.location_city}, {job.location_state}</Td>
                 <Td>{job.shift_schedule}</Td>

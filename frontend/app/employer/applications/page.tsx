@@ -244,8 +244,8 @@ function DirectScheduleModal({ open, application, onClose, onDone }: { open: boo
         {error ? <ErrorState message={error} /> : null}
         <div className="grid gap-3 md:grid-cols-3">
           <Input label="Date" required placeholder="YYYY-MM-DD" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
-          <Input label="Start time" type="time" required value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} />
-          <Input label="End time" type="time" required value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} />
+          <Input label="Start time" required placeholder="HH:MM" value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} />
+          <Input label="End time" required placeholder="HH:MM" value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} />
         </div>
         <Input label="Factory location" required value={form.factory_location} onChange={(e) => setForm({ ...form, factory_location: e.target.value })} />
         <Input label="Google Maps URL" required value={form.google_maps_url} onChange={(e) => setForm({ ...form, google_maps_url: e.target.value })} />
@@ -312,8 +312,8 @@ function SlotScheduleModal({ open, application, onClose, onDone }: { open: boole
         <Input label="Date" required placeholder="YYYY-MM-DD" value={date} onChange={(e) => setDate(e.target.value)} />
         {times.map((time, index) => (
           <div key={index} className="grid gap-3 md:grid-cols-2">
-            <Input label={`Slot ${index + 1} start`} type="time" required value={time.start} onChange={(e) => setTimes(times.map((item, i) => i === index ? { ...item, start: e.target.value } : item))} />
-            <Input label={`Slot ${index + 1} end`} type="time" required value={time.end} onChange={(e) => setTimes(times.map((item, i) => i === index ? { ...item, end: e.target.value } : item))} />
+            <Input label={`Slot ${index + 1} start`} required placeholder="HH:MM" value={time.start} onChange={(e) => setTimes(times.map((item, i) => i === index ? { ...item, start: e.target.value } : item))} />
+            <Input label={`Slot ${index + 1} end`} required placeholder="HH:MM" value={time.end} onChange={(e) => setTimes(times.map((item, i) => i === index ? { ...item, end: e.target.value } : item))} />
           </div>
         ))}
         <Input label="Factory location" required value={location} onChange={(e) => setLocation(e.target.value)} />

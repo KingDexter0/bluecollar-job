@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"bluecollarjob/internal/models"
@@ -55,6 +56,16 @@ func (s *workerService) CreateWorker(ctx context.Context, input CreateWorkerInpu
 	if referralCode == "" {
 		referralCode = referralCodeFromPhone(input.PhoneNumber)
 	}
+	referredByCode := cleanStringPtr(input.ReferredByCode)
+	if s.referrals != nil && referredByCode != nil {
+		code := strings.TrimSpace(*referredByCode)
+		if code == referralCode {
+			return nil, fmt.Errorf("%w: worker cannot refer self", ErrInvalidInput)
+		}
+		if _, err := s.users.GetUserByReferralCode(ctx, code); err != nil {
+			return nil, fmt.Errorf("%w: referred_by_code does not exist", ErrInvalidInput)
+		}
+	}
 
 	user, err := s.users.CreateUser(ctx, &models.User{
 		PhoneNumber:        strings.TrimSpace(input.PhoneNumber),
@@ -64,7 +75,7 @@ func (s *workerService) CreateWorker(ctx context.Context, input CreateWorkerInpu
 		PreferredZone:      cleanStringPtr(input.PreferredZone),
 		VerificationTier:   models.VerificationTierHigh,
 		ReferralCode:       referralCode,
-		ReferredByCode:     cleanStringPtr(input.ReferredByCode),
+		ReferredByCode:     referredByCode,
 		IsActive:           true,
 	})
 	if err != nil {

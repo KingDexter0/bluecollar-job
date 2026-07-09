@@ -186,8 +186,8 @@ export default function WorkerDemoPage() {
             <CardTitle>Current worker</CardTitle>
             {worker ? (
               <div className="mt-4 space-y-2 text-sm">
-                <p><strong>{worker.full_name}</strong> · {worker.phone_number}</p>
-                <p>{worker.target_role} · {worker.preferred_zone}</p>
+                <p><strong>{worker.full_name}</strong> - {worker.phone_number}</p>
+                <p>{worker.target_role} - {worker.preferred_zone}</p>
                 <p>Referral code: <strong>{worker.referral_code}</strong></p>
                 <p>Risk tier: <RiskBadge tier={worker.verification_tier} /></p>
               </div>
@@ -225,14 +225,20 @@ export default function WorkerDemoPage() {
         {verification ? (
           <Card className="mt-5">
             <CardTitle>Latest verification</CardTitle>
-            <pre className="mt-3 overflow-x-auto rounded-md bg-slate-900 p-4 text-xs text-slate-50">{JSON.stringify(verification, null, 2)}</pre>
+            <div className="mt-3 grid gap-3 text-sm md:grid-cols-3">
+              <SafeVerificationMetric label="Method" value={verification.method} />
+              <SafeVerificationMetric label="Status" value={verification.status} />
+              <SafeVerificationMetric label="Aadhaar" value={verification.aadhaar_masked || "Not provided"} />
+              <SafeVerificationMetric label="Document uploaded" value={verification.document_uploaded ? "Yes" : "No"} />
+              <SafeVerificationMetric label="Consent" value={verification.consent_given ? "Given" : "Not given"} />
+            </div>
           </Card>
         ) : null}
 
         <Card className="mt-5">
           <CardTitle>Browse jobs and apply</CardTitle>
           <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-end">
-            <Select label="Job" value={selectedJobID} onChange={(e) => setSelectedJobID(e.target.value)} options={jobs.map((job) => ({ label: `${job.title} · ${job.location_city}`, value: job.id }))} />
+            <Select label="Job" value={selectedJobID} onChange={(e) => setSelectedJobID(e.target.value)} options={jobs.map((job) => ({ label: `${job.title} - ${job.location_city}`, value: job.id }))} />
             <Button disabled={!worker || !selectedJobID} onClick={applyToJob}>Apply to job</Button>
             <Button variant="secondary" disabled={!worker} onClick={() => worker && loadApplications(worker.id)}>Check application status</Button>
           </div>
@@ -299,4 +305,13 @@ export default function WorkerDemoPage() {
 function RiskBadge({ tier }: { tier: string }) {
   const tone = tier === "Low" ? "green" : tier === "Medium" ? "yellow" : "red";
   return <Badge tone={tone}>{tier}</Badge>;
+}
+
+function SafeVerificationMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-slate-200 p-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-1 break-words text-ink">{value}</p>
+    </div>
+  );
 }

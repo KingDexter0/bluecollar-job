@@ -18,7 +18,7 @@ func CORS(allowedOrigins []string, allowLocalhost bool) gin.HandlerFunc {
 			c.Header("Access-Control-Allow-Origin", origin)
 			c.Header("Vary", "Origin")
 			c.Header("Access-Control-Allow-Credentials", "true")
-			c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Request-ID")
+			c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Request-ID, X-Admin-Token")
 			c.Header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
 		}
 

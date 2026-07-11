@@ -45,6 +45,18 @@ DOCUMENT_UPLOAD_ENABLED=false
 
 Set `DOCUMENT_UPLOAD_ENABLED=true` only after object storage and media scanning are production-ready.
 
+For Linode Object Storage:
+
+```env
+DOCUMENT_UPLOAD_ENABLED=true
+OBJECT_STORAGE_PROVIDER=linode
+OBJECT_STORAGE_BUCKET=bluecollar-documents
+OBJECT_STORAGE_REGION=ap-south
+OBJECT_STORAGE_ENDPOINT=https://ap-south-1.linodeobjects.com
+OBJECT_STORAGE_ACCESS_KEY_ID=replace-with-access-key
+OBJECT_STORAGE_SECRET_ACCESS_KEY=replace-with-secret-key
+```
+
 ## Webhook Verification Test
 
 ```bash
@@ -97,13 +109,24 @@ The TTL is 48 hours. Duplicate webhook deliveries are acknowledged but not proce
 
 ## Media / Document Uploads
 
-The app detects image/document media IDs and stores only a safe `document_ref` such as:
+The app detects image/document media IDs. When `DOCUMENT_UPLOAD_ENABLED=false`, it stores only a safe non-downloaded reference such as:
 
 ```text
 meta-media:{media_id}
 ```
 
-The app does not store raw files in PostgreSQL. Media download is scaffolded behind `MediaDownloader` and must stay disabled until production object storage, malware scanning, and retention policies are ready.
+When `DOCUMENT_UPLOAD_ENABLED=true`, the Meta media downloader:
+
+1. Fetches the temporary media URL from Meta.
+2. Downloads the media with the WhatsApp access token.
+3. Uploads it to configured object storage.
+4. Stores only the resulting object reference, for example:
+
+```text
+s3://bluecollar-documents/worker-documents/2026/07/11/...
+```
+
+The app does not store raw files in PostgreSQL. Keep malware scanning, retention policies, and signed-access workflows in place before handling real identity documents at scale.
 
 ## Required Message Templates
 
@@ -139,4 +162,3 @@ Use approved utility/service templates for business-initiated messages. Do not u
 ```env
 WHATSAPP_PROVIDER=mock
 ```
-

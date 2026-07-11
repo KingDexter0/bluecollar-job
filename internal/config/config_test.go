@@ -40,7 +40,8 @@ func TestProductionValidationAcceptsRequiredSettings(t *testing.T) {
 			GraphAPIVersion: "v20.0",
 		},
 		ObjectStorage: ObjectStorageConfig{
-			Bucket: "bluecollar-documents",
+			Provider: "local",
+			Bucket:   "bluecollar-documents",
 		},
 		DocumentUpload: DocumentUploadConfig{
 			Enabled: true,

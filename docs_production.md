@@ -27,6 +27,13 @@ Production and staging fail fast if these are missing or weak:
 - `WHATSAPP_PHONE_NUMBER_ID` when `WHATSAPP_PROVIDER=meta`
 - `WHATSAPP_BUSINESS_ACCOUNT_ID`
 - `WHATSAPP_GRAPH_API_VERSION`
+- `DOCUMENT_UPLOAD_ENABLED`
+- `OBJECT_STORAGE_PROVIDER`
+- `OBJECT_STORAGE_BUCKET`
+- `OBJECT_STORAGE_REGION`
+- `OBJECT_STORAGE_ENDPOINT`
+- `OBJECT_STORAGE_ACCESS_KEY_ID`
+- `OBJECT_STORAGE_SECRET_ACCESS_KEY`
 - `OBJECT_STORAGE_BUCKET` when `DOCUMENT_UPLOAD_ENABLED=true`
 
 `JWT_SECRET` must be at least 32 characters in staging/production and must not use placeholder values.
@@ -88,7 +95,7 @@ Document uploads should use object storage and persist only `document_ref` in Po
 Current providers:
 
 - `local`: development/mock provider.
-- `linode`: placeholder for Linode Object Storage integration.
+- `linode` / `s3`: S3-compatible provider for Linode Object Storage or equivalent object storage.
 
 Production upload policy:
 
@@ -105,7 +112,8 @@ Real integrations are intentionally not enabled yet. The codebase already keeps 
 - WhatsApp sender interface with mock and Meta WhatsApp Cloud API providers.
 - Aadhaar gateway interface with mock gateway; add authorized e-KYC provider credentials through env only.
 - Referral payout gateway interface with mock payout; add UPI/payout provider behind the gateway.
-- Object storage interface with local provider and Linode scaffold.
+- Object storage interface with local provider and Linode/S3-compatible provider.
+- Linode/S3-compatible object storage implementation for Meta media document uploads.
 
 All real providers must use safe error messages and must never log Aadhaar, OTP, passwords, hashes, or raw document paths.
 

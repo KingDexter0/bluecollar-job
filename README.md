@@ -211,7 +211,7 @@ The database never stores raw Aadhaar numbers or OTP values. The `worker_identit
 - `document_ref`
 - consent and verification timestamps
 
-Document uploads should store only secure object storage references such as an S3/GCS/Azure Blob object key. Raw document binaries do not belong in PostgreSQL.
+Document uploads store only secure object storage references such as `s3://bucket/worker-documents/...`. Raw document binaries do not belong in PostgreSQL. In production, set `OBJECT_STORAGE_PROVIDER=linode` or `s3` with bucket, region, endpoint, and access keys; the WhatsApp Meta media downloader stores uploaded image/document media in object storage before saving the `document_ref`.
 
 Verification outcomes map to worker risk tiers:
 

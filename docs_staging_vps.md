@@ -76,6 +76,13 @@ Set real staging values:
 - `WHATSAPP_PHONE_NUMBER_ID` when `WHATSAPP_PROVIDER=meta`
 - `WHATSAPP_BUSINESS_ACCOUNT_ID`
 - `WHATSAPP_GRAPH_API_VERSION`
+- `DOCUMENT_UPLOAD_ENABLED`
+- `OBJECT_STORAGE_PROVIDER`
+- `OBJECT_STORAGE_BUCKET`
+- `OBJECT_STORAGE_REGION`
+- `OBJECT_STORAGE_ENDPOINT`
+- `OBJECT_STORAGE_ACCESS_KEY_ID`
+- `OBJECT_STORAGE_SECRET_ACCESS_KEY`
 - `NEXT_PUBLIC_API_BASE_URL`
 
 For staging without document upload, keep:
@@ -174,5 +181,5 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/restore-postgr
 - Meta WhatsApp sending is available behind `WHATSAPP_PROVIDER=meta`; approved templates, opt-in review, and real credentials are still required before live traffic.
 - Real Aadhaar/e-KYC is not enabled.
 - Real UPI/payout is not enabled.
-- Linode Object Storage is scaffolded but not wired to real credentials yet.
+- Linode Object Storage support is implemented, but staging still needs real bucket credentials and a document-retention policy.
 - Move the project outside OneDrive before regenerating `frontend/package-lock.json` and switching CI/Docker to `npm ci`.

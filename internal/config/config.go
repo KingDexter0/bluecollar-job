@@ -127,7 +127,7 @@ func Load() (*Config, error) {
 			WebhookSecret:     os.Getenv("WHATSAPP_WEBHOOK_SECRET"),
 		},
 		ObjectStorage: ObjectStorageConfig{
-			Provider:        getEnv("OBJECT_STORAGE_PROVIDER", "local"),
+			Provider:        strings.ToLower(strings.TrimSpace(getEnv("OBJECT_STORAGE_PROVIDER", "local"))),
 			LocalBasePath:   getEnv("OBJECT_STORAGE_LOCAL_PATH", "./var/uploads"),
 			Bucket:          os.Getenv("OBJECT_STORAGE_BUCKET"),
 			Region:          os.Getenv("OBJECT_STORAGE_REGION"),
@@ -166,6 +166,11 @@ func (c *Config) Validate() error {
 	case "mock", "meta":
 	default:
 		return fmt.Errorf("WHATSAPP_PROVIDER must be mock or meta")
+	}
+	switch c.ObjectStorage.Provider {
+	case "local", "linode", "s3":
+	default:
+		return fmt.Errorf("OBJECT_STORAGE_PROVIDER must be local, linode, or s3")
 	}
 	if strings.TrimSpace(c.WhatsApp.GraphAPIVersion) == "" {
 		return fmt.Errorf("WHATSAPP_GRAPH_API_VERSION is required")
@@ -206,8 +211,18 @@ func (c *Config) Validate() error {
 		if len(strings.TrimSpace(c.AdminToken)) < 32 {
 			return fmt.Errorf("ADMIN_TOKEN must be at least 32 characters in staging/production")
 		}
-		if c.DocumentUpload.Enabled && strings.TrimSpace(c.ObjectStorage.Bucket) == "" {
-			return fmt.Errorf("OBJECT_STORAGE_BUCKET is required in staging/production when document upload is enabled")
+		if c.DocumentUpload.Enabled {
+			if strings.TrimSpace(c.ObjectStorage.Bucket) == "" {
+				return fmt.Errorf("OBJECT_STORAGE_BUCKET is required in staging/production when document upload is enabled")
+			}
+			if c.ObjectStorage.Provider == "linode" || c.ObjectStorage.Provider == "s3" {
+				if strings.TrimSpace(c.ObjectStorage.Region) == "" {
+					return fmt.Errorf("OBJECT_STORAGE_REGION is required when object storage provider is %s", c.ObjectStorage.Provider)
+				}
+				if strings.TrimSpace(c.ObjectStorage.AccessKeyID) == "" || strings.TrimSpace(c.ObjectStorage.SecretAccessKey) == "" {
+					return fmt.Errorf("object storage access key and secret are required when document upload is enabled")
+				}
+			}
 		}
 	}
 	return nil

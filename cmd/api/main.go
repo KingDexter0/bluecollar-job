@@ -17,6 +17,7 @@ import (
 	appmiddleware "bluecollarjob/internal/middleware"
 	"bluecollarjob/internal/repository"
 	"bluecollarjob/internal/service"
+	"bluecollarjob/internal/storage"
 
 	"github.com/gin-gonic/gin"
 )
@@ -65,7 +66,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("configure WhatsApp sender: %v", err)
 	}
-	mediaDownloader := buildMediaDownloader(cfg)
+	objectStore, err := buildObjectStore(cfg)
+	if err != nil {
+		log.Fatalf("configure object storage: %v", err)
+	}
+	mediaDownloader := buildMediaDownloader(cfg, objectStore)
 	messageDeduplicator := service.NewRedisWhatsAppMessageDeduplicator(redisClient, 48*time.Hour)
 	notificationWorkerService := service.NewNotificationWorkerService(
 		repositories.Notifications,
@@ -235,9 +240,24 @@ func buildWhatsAppSender(cfg *config.Config) (service.WhatsAppSender, error) {
 	return service.NewMockWhatsAppSender(), nil
 }
 
-func buildMediaDownloader(cfg *config.Config) service.MediaDownloader {
+func buildObjectStore(cfg *config.Config) (storage.ObjectStore, error) {
+	switch cfg.ObjectStorage.Provider {
+	case "linode", "s3":
+		return storage.NewLinodeObjectStore(storage.LinodeObjectStoreConfig{
+			Bucket:          cfg.ObjectStorage.Bucket,
+			Region:          cfg.ObjectStorage.Region,
+			Endpoint:        cfg.ObjectStorage.Endpoint,
+			AccessKeyID:     cfg.ObjectStorage.AccessKeyID,
+			SecretAccessKey: cfg.ObjectStorage.SecretAccessKey,
+		})
+	default:
+		return storage.NewLocalObjectStore(cfg.ObjectStorage.LocalBasePath), nil
+	}
+}
+
+func buildMediaDownloader(cfg *config.Config, objectStore storage.ObjectStore) service.MediaDownloader {
 	if cfg.WhatsApp.Provider == "meta" {
-		return service.NewMetaMediaDownloader(cfg.WhatsApp.AccessToken, cfg.WhatsApp.GraphAPIVersion)
+		return service.NewMetaMediaDownloader(cfg.WhatsApp.AccessToken, cfg.WhatsApp.GraphAPIVersion, objectStore)
 	}
 	return service.NewMockMediaDownloader()
 }

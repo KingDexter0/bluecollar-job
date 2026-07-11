@@ -11,22 +11,21 @@ import (
 )
 
 type Config struct {
-	AppEnv              string
-	AppPort             string
-	CORSAllowedOrigins  []string
-	DatabaseURL         string
-	FrontendURL         string
-	Redis               RedisConfig
-	AadhaarGateway      AadhaarGatewayConfig
-	NotificationWorker  NotificationWorkerConfig
-	JWTTTL              time.Duration
-	JWTSecret           string
-	JWTIssuer           string
-	AdminToken          string
-	WhatsAppVerifyToken string
-	WhatsAppAccessToken string
-	ObjectStorage       ObjectStorageConfig
-	DocumentUpload      DocumentUploadConfig
+	AppEnv             string
+	AppPort            string
+	CORSAllowedOrigins []string
+	DatabaseURL        string
+	FrontendURL        string
+	Redis              RedisConfig
+	AadhaarGateway     AadhaarGatewayConfig
+	NotificationWorker NotificationWorkerConfig
+	JWTTTL             time.Duration
+	JWTSecret          string
+	JWTIssuer          string
+	AdminToken         string
+	WhatsApp           WhatsAppConfig
+	ObjectStorage      ObjectStorageConfig
+	DocumentUpload     DocumentUploadConfig
 }
 
 type RedisConfig struct {
@@ -46,6 +45,16 @@ type NotificationWorkerConfig struct {
 	Enabled             bool
 	Count               int
 	PollIntervalSeconds int
+}
+
+type WhatsAppConfig struct {
+	Provider          string
+	VerifyToken       string
+	AccessToken       string
+	PhoneNumberID     string
+	BusinessAccountID string
+	GraphAPIVersion   string
+	WebhookSecret     string
 }
 
 type ObjectStorageConfig struct {
@@ -104,12 +113,19 @@ func Load() (*Config, error) {
 			Count:               workerCount,
 			PollIntervalSeconds: pollIntervalSeconds,
 		},
-		JWTTTL:              time.Duration(jwtTTLHours) * time.Hour,
-		JWTSecret:           os.Getenv("JWT_SECRET"),
-		JWTIssuer:           getEnv("JWT_ISSUER", "bluecollarjob"),
-		AdminToken:          getEnv("ADMIN_TOKEN", "local-admin-token"),
-		WhatsAppVerifyToken: os.Getenv("WHATSAPP_VERIFY_TOKEN"),
-		WhatsAppAccessToken: os.Getenv("WHATSAPP_ACCESS_TOKEN"),
+		JWTTTL:     time.Duration(jwtTTLHours) * time.Hour,
+		JWTSecret:  os.Getenv("JWT_SECRET"),
+		JWTIssuer:  getEnv("JWT_ISSUER", "bluecollarjob"),
+		AdminToken: getEnv("ADMIN_TOKEN", "local-admin-token"),
+		WhatsApp: WhatsAppConfig{
+			Provider:          strings.ToLower(strings.TrimSpace(getEnv("WHATSAPP_PROVIDER", "mock"))),
+			VerifyToken:       os.Getenv("WHATSAPP_VERIFY_TOKEN"),
+			AccessToken:       os.Getenv("WHATSAPP_ACCESS_TOKEN"),
+			PhoneNumberID:     os.Getenv("WHATSAPP_PHONE_NUMBER_ID"),
+			BusinessAccountID: os.Getenv("WHATSAPP_BUSINESS_ACCOUNT_ID"),
+			GraphAPIVersion:   getEnv("WHATSAPP_GRAPH_API_VERSION", "v20.0"),
+			WebhookSecret:     os.Getenv("WHATSAPP_WEBHOOK_SECRET"),
+		},
 		ObjectStorage: ObjectStorageConfig{
 			Provider:        getEnv("OBJECT_STORAGE_PROVIDER", "local"),
 			LocalBasePath:   getEnv("OBJECT_STORAGE_LOCAL_PATH", "./var/uploads"),
@@ -146,6 +162,14 @@ func (c *Config) Validate() error {
 	if strings.TrimSpace(c.JWTSecret) == "" {
 		return fmt.Errorf("JWT_SECRET is required")
 	}
+	switch c.WhatsApp.Provider {
+	case "mock", "meta":
+	default:
+		return fmt.Errorf("WHATSAPP_PROVIDER must be mock or meta")
+	}
+	if strings.TrimSpace(c.WhatsApp.GraphAPIVersion) == "" {
+		return fmt.Errorf("WHATSAPP_GRAPH_API_VERSION is required")
+	}
 	if c.IsProduction() || c.AppEnv == "staging" {
 		if strings.TrimSpace(os.Getenv("APP_ENV")) == "" {
 			return fmt.Errorf("APP_ENV is required in staging/production")
@@ -159,8 +183,16 @@ func (c *Config) Validate() error {
 		if strings.TrimSpace(c.FrontendURL) == "" {
 			return fmt.Errorf("FRONTEND_URL is required in staging/production")
 		}
-		if strings.TrimSpace(c.WhatsAppVerifyToken) == "" {
+		if strings.TrimSpace(c.WhatsApp.VerifyToken) == "" {
 			return fmt.Errorf("WHATSAPP_VERIFY_TOKEN is required in staging/production")
+		}
+		if c.WhatsApp.Provider == "meta" {
+			if strings.TrimSpace(c.WhatsApp.AccessToken) == "" {
+				return fmt.Errorf("WHATSAPP_ACCESS_TOKEN is required when WHATSAPP_PROVIDER=meta")
+			}
+			if strings.TrimSpace(c.WhatsApp.PhoneNumberID) == "" {
+				return fmt.Errorf("WHATSAPP_PHONE_NUMBER_ID is required when WHATSAPP_PROVIDER=meta")
+			}
 		}
 		if strings.TrimSpace(c.Redis.Password) == "" {
 			return fmt.Errorf("REDIS_PASSWORD is required in staging/production")

@@ -123,6 +123,25 @@ func (s *fakeRedisStore) Set(ctx context.Context, key string, value any, expirat
 	return redis.NewStatusResult("OK", nil)
 }
 
+func (s *fakeRedisStore) SetNX(ctx context.Context, key string, value any, expiration time.Duration) *redis.BoolCmd {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if existing, ok := s.values[key]; ok && !existing.expired() {
+		return redis.NewBoolResult(false, nil)
+	}
+	var encoded string
+	switch typed := value.(type) {
+	case []byte:
+		encoded = string(typed)
+	case string:
+		encoded = typed
+	default:
+		encoded = fmt.Sprint(typed)
+	}
+	s.values[key] = fakeRedisValue{value: encoded, expiresAt: expiryFromDuration(expiration)}
+	return redis.NewBoolResult(true, nil)
+}
+
 func (s *fakeRedisStore) Del(ctx context.Context, keys ...string) *redis.IntCmd {
 	s.mu.Lock()
 	defer s.mu.Unlock()

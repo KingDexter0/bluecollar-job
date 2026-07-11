@@ -70,7 +70,12 @@ Set real staging values:
 - `ADMIN_TOKEN`
 - `CORS_ALLOWED_ORIGINS`
 - `FRONTEND_URL`
+- `WHATSAPP_PROVIDER`
 - `WHATSAPP_VERIFY_TOKEN`
+- `WHATSAPP_ACCESS_TOKEN` when `WHATSAPP_PROVIDER=meta`
+- `WHATSAPP_PHONE_NUMBER_ID` when `WHATSAPP_PROVIDER=meta`
+- `WHATSAPP_BUSINESS_ACCOUNT_ID`
+- `WHATSAPP_GRAPH_API_VERSION`
 - `NEXT_PUBLIC_API_BASE_URL`
 
 For staging without document upload, keep:
@@ -166,7 +171,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/restore-postgr
 
 ## 12. Known Staging Limitations
 
-- Real WhatsApp/Meta sending is not enabled.
+- Meta WhatsApp sending is available behind `WHATSAPP_PROVIDER=meta`; approved templates, opt-in review, and real credentials are still required before live traffic.
 - Real Aadhaar/e-KYC is not enabled.
 - Real UPI/payout is not enabled.
 - Linode Object Storage is scaffolded but not wired to real credentials yet.

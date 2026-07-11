@@ -61,10 +61,15 @@ func main() {
 	employerService := service.NewEmployerService(repositories.Employers, repositories.Jobs, authService)
 	atsService := service.NewATSService(repositories.ATS, repositories.Notifications)
 	adminService := service.NewAdminService(repositories.Admin, repositories.Referrals)
-	mockWhatsAppSender := service.NewMockWhatsAppSender()
+	whatsAppSender, err := buildWhatsAppSender(cfg)
+	if err != nil {
+		log.Fatalf("configure WhatsApp sender: %v", err)
+	}
+	mediaDownloader := buildMediaDownloader(cfg)
+	messageDeduplicator := service.NewRedisWhatsAppMessageDeduplicator(redisClient, 48*time.Hour)
 	notificationWorkerService := service.NewNotificationWorkerService(
 		repositories.Notifications,
-		mockWhatsAppSender,
+		whatsAppSender,
 		service.NotificationWorkerConfig{
 			WorkerCount:  cfg.NotificationWorker.Count,
 			PollInterval: time.Duration(cfg.NotificationWorker.PollIntervalSeconds) * time.Second,
@@ -74,7 +79,7 @@ func main() {
 	notificationQueryService := service.NewNotificationQueryService(repositories.Notifications)
 	conversationStateService := service.NewRedisConversationStateService(redisClient)
 	statusOTPService := service.NewRedisStatusOTPService(redisClient, cfg.JWTSecret)
-	whatsAppBotService := service.NewWhatsAppBotService(repositories.Users, applicationService, jobService, identityVerificationService, referralService, conversationStateService, statusOTPService, mockWhatsAppSender)
+	whatsAppBotService := service.NewWhatsAppBotService(repositories.Users, applicationService, jobService, identityVerificationService, referralService, conversationStateService, statusOTPService, whatsAppSender)
 
 	workerHandler := handler.NewWorkerHandler(workerService)
 	identityVerificationHandler := handler.NewIdentityVerificationHandler(identityVerificationService)
@@ -84,7 +89,7 @@ func main() {
 	atsHandler := handler.NewATSHandler(atsService)
 	devHandler := handler.NewDevHandler(notificationWorkerService, notificationQueryService, conversationStateService, statusOTPService, referralService)
 	adminHandler := handler.NewAdminHandler(adminService, notificationQueryService, referralService)
-	whatsAppHandler := handler.NewWhatsAppHandler(cfg.WhatsAppVerifyToken, whatsAppBotService)
+	whatsAppHandler := handler.NewWhatsAppHandler(cfg.WhatsApp.VerifyToken, whatsAppBotService, messageDeduplicator, mediaDownloader, cfg.DocumentUpload.Enabled)
 	referralHandler := handler.NewReferralHandler(referralService)
 
 	if cfg.NotificationWorker.Enabled {
@@ -217,4 +222,22 @@ func main() {
 	}
 
 	log.Println("api stopped")
+}
+
+func buildWhatsAppSender(cfg *config.Config) (service.WhatsAppSender, error) {
+	if cfg.WhatsApp.Provider == "meta" {
+		return service.NewMetaWhatsAppSender(service.MetaWhatsAppConfig{
+			AccessToken:     cfg.WhatsApp.AccessToken,
+			PhoneNumberID:   cfg.WhatsApp.PhoneNumberID,
+			GraphAPIVersion: cfg.WhatsApp.GraphAPIVersion,
+		})
+	}
+	return service.NewMockWhatsAppSender(), nil
+}
+
+func buildMediaDownloader(cfg *config.Config) service.MediaDownloader {
+	if cfg.WhatsApp.Provider == "meta" {
+		return service.NewMetaMediaDownloader(cfg.WhatsApp.AccessToken, cfg.WhatsApp.GraphAPIVersion)
+	}
+	return service.NewMockMediaDownloader()
 }

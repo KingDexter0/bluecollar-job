@@ -21,7 +21,12 @@ Production and staging fail fast if these are missing or weak:
 - `ADMIN_TOKEN`
 - `CORS_ALLOWED_ORIGINS`
 - `FRONTEND_URL`
+- `WHATSAPP_PROVIDER`
 - `WHATSAPP_VERIFY_TOKEN`
+- `WHATSAPP_ACCESS_TOKEN` when `WHATSAPP_PROVIDER=meta`
+- `WHATSAPP_PHONE_NUMBER_ID` when `WHATSAPP_PROVIDER=meta`
+- `WHATSAPP_BUSINESS_ACCOUNT_ID`
+- `WHATSAPP_GRAPH_API_VERSION`
 - `OBJECT_STORAGE_BUCKET` when `DOCUMENT_UPLOAD_ENABLED=true`
 
 `JWT_SECRET` must be at least 32 characters in staging/production and must not use placeholder values.
@@ -97,7 +102,7 @@ Production upload policy:
 
 Real integrations are intentionally not enabled yet. The codebase already keeps provider boundaries clean:
 
-- WhatsApp sender interface with mock sender; add Meta/OpenWA providers behind the same interface.
+- WhatsApp sender interface with mock and Meta WhatsApp Cloud API providers.
 - Aadhaar gateway interface with mock gateway; add authorized e-KYC provider credentials through env only.
 - Referral payout gateway interface with mock payout; add UPI/payout provider behind the gateway.
 - Object storage interface with local provider and Linode scaffold.
@@ -236,7 +241,7 @@ Full demo flow:
 
 ## Known Limitations
 
-- Real WhatsApp/OpenWA/Meta integration is pending.
+- Meta WhatsApp Cloud API integration is implemented, but live credentials, approved templates, and opt-in review are still required.
 - Real Aadhaar/e-KYC integration is pending.
 - Real UPI/payout integration is pending.
 - Production deployment is prepared but not yet executed.

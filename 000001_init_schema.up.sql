@@ -61,6 +61,8 @@ CREATE TABLE users (
     verification_tier verification_tier_enum NOT NULL DEFAULT 'High',
     referral_code VARCHAR(32) NOT NULL,
     referred_by_code VARCHAR(32),
+    whatsapp_opted_in BOOLEAN NOT NULL DEFAULT FALSE,
+    whatsapp_opted_in_at TIMESTAMPTZ,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

@@ -19,6 +19,8 @@ const userColumns = `
 	verification_tier,
 	referral_code,
 	referred_by_code,
+	whatsapp_opted_in,
+	whatsapp_opted_in_at,
 	is_active,
 	created_at,
 	updated_at`
@@ -42,9 +44,11 @@ func (r *PostgresUserRepository) CreateUser(ctx context.Context, user *models.Us
 			verification_tier,
 			referral_code,
 			referred_by_code,
+			whatsapp_opted_in,
+			whatsapp_opted_in_at,
 			is_active
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, TRUE))
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, FALSE), $10, COALESCE($11, TRUE))
 		RETURNING `+userColumns,
 		user.PhoneNumber,
 		user.FullName,
@@ -54,6 +58,8 @@ func (r *PostgresUserRepository) CreateUser(ctx context.Context, user *models.Us
 		user.VerificationTier,
 		user.ReferralCode,
 		nullableString(user.ReferredByCode),
+		user.WhatsAppOptedIn,
+		user.WhatsAppOptedInAt,
 		user.IsActive,
 	)
 
@@ -105,6 +111,7 @@ func scanUser(row interface{ Scan(dest ...any) error }) (*models.User, error) {
 	var targetRole sql.NullString
 	var preferredZone sql.NullString
 	var referredByCode sql.NullString
+	var whatsAppOptedInAt sql.NullTime
 
 	err := row.Scan(
 		&user.ID,
@@ -116,6 +123,8 @@ func scanUser(row interface{ Scan(dest ...any) error }) (*models.User, error) {
 		&user.VerificationTier,
 		&user.ReferralCode,
 		&referredByCode,
+		&user.WhatsAppOptedIn,
+		&whatsAppOptedInAt,
 		&user.IsActive,
 		&user.CreatedAt,
 		&user.UpdatedAt,
@@ -127,6 +136,9 @@ func scanUser(row interface{ Scan(dest ...any) error }) (*models.User, error) {
 	user.TargetRole = stringPtr(targetRole)
 	user.PreferredZone = stringPtr(preferredZone)
 	user.ReferredByCode = stringPtr(referredByCode)
+	if whatsAppOptedInAt.Valid {
+		user.WhatsAppOptedInAt = &whatsAppOptedInAt.Time
+	}
 
 	return &user, nil
 }

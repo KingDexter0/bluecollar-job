@@ -40,6 +40,7 @@ type IncomingWhatsAppMessage struct {
 	PhoneNumber string
 	Text        string
 	MessageType string
+	MessageID   string
 	MediaRef    *string
 }
 
@@ -155,6 +156,8 @@ func (s *whatsappBotService) startNewUserFlow(ctx context.Context, phoneNumber, 
 		VerificationTier:   models.VerificationTierHigh,
 		ReferralCode:       referralCodeFromPhone(phoneNumber),
 		ReferredByCode:     stringPtrFromValue(referredByCode),
+		WhatsAppOptedIn:    true,
+		WhatsAppOptedInAt:  timePtr(time.Now().UTC()),
 		IsActive:           true,
 	})
 	if err != nil {
@@ -573,5 +576,9 @@ func stringPtrFromValue(value string) *string {
 	if value == "" {
 		return nil
 	}
+	return &value
+}
+
+func timePtr(value time.Time) *time.Time {
 	return &value
 }

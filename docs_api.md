@@ -516,9 +516,19 @@ Set `WHATSAPP_VERIFY_TOKEN` in `.env`, then verify the webhook locally:
 curl "http://localhost:8081/api/v1/whatsapp/webhook?hub.mode=subscribe&hub.verify_token={WHATSAPP_VERIFY_TOKEN}&hub.challenge=local-challenge"
 ```
 
+Production Meta Cloud API mode uses the same callback URL:
+
+```text
+https://api.yourdomain.com/api/v1/whatsapp/webhook
+```
+
+Set `WHATSAPP_PROVIDER=meta`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_BUSINESS_ACCOUNT_ID`, and `WHATSAPP_GRAPH_API_VERSION`. See `docs_whatsapp_meta.md` for the full setup, template list, pricing notes, and compliance rules.
+
+Meta webhook message IDs are deduplicated in Redis at `wa_msg:{message_id}`. Status callbacks and unsupported webhook events return `200` with `"ignored": true`.
+
 ## WhatsApp/OpenWA Local Message Test
 
-This accepts OpenWA-style JSON and uses the mock WhatsApp sender only. No real Meta, OpenWA, or WhatsApp API call is made.
+This accepts OpenWA-style JSON in mock mode. No real Meta, OpenWA, or WhatsApp API call is made when `WHATSAPP_PROVIDER=mock`.
 
 ```bash
 curl -X POST http://localhost:8081/api/v1/whatsapp/webhook \

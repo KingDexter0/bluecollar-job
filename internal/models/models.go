@@ -75,6 +75,8 @@ type User struct {
 	VerificationTier   VerificationTier
 	ReferralCode       string
 	ReferredByCode     *string
+	WhatsAppOptedIn    bool
+	WhatsAppOptedInAt  *time.Time
 	IsActive           bool
 	CreatedAt          time.Time
 	UpdatedAt          time.Time

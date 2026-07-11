@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -24,6 +25,8 @@ type NotificationWorkerConfig struct {
 	WorkerCount  int
 	PollInterval time.Duration
 	BatchSize    int
+	MaxAttempts  int
+	RetryBackoff time.Duration
 }
 
 type NotificationProcessResult struct {
@@ -47,6 +50,12 @@ func NewNotificationWorkerService(notifications repository.NotificationRepositor
 	}
 	if cfg.BatchSize <= 0 {
 		cfg.BatchSize = 10
+	}
+	if cfg.MaxAttempts <= 0 {
+		cfg.MaxAttempts = 3
+	}
+	if cfg.RetryBackoff <= 0 {
+		cfg.RetryBackoff = 500 * time.Millisecond
 	}
 	return &notificationWorkerService{
 		notifications: notifications,
@@ -87,9 +96,9 @@ func (s *notificationWorkerService) ProcessOnce(ctx context.Context, limit int) 
 	result := NotificationProcessResult{Claimed: len(events)}
 	for _, event := range events {
 		message := buildNotificationMessage(event)
-		if err := s.sender.SendMessage(ctx, event.Recipient, message); err != nil {
+		if err := s.sendWithRetry(ctx, event.Recipient, message); err != nil {
 			result.Failed++
-			if _, markErr := s.notifications.MarkNotificationEventFailed(ctx, event.ID, err.Error()); markErr != nil {
+			if _, markErr := s.notifications.MarkNotificationEventFailed(ctx, event.ID, safeNotificationFailure(err)); markErr != nil {
 				return result, markErr
 			}
 			continue
@@ -101,6 +110,26 @@ func (s *notificationWorkerService) ProcessOnce(ctx context.Context, limit int) 
 	}
 
 	return result, nil
+}
+
+func (s *notificationWorkerService) sendWithRetry(ctx context.Context, recipient, message string) error {
+	var lastErr error
+	for attempt := 1; attempt <= s.cfg.MaxAttempts; attempt++ {
+		if err := s.sender.SendMessage(ctx, recipient, message); err != nil {
+			lastErr = err
+			if !errors.Is(err, ErrTemporaryWhatsAppDelivery) || attempt == s.cfg.MaxAttempts {
+				break
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(s.cfg.RetryBackoff * time.Duration(attempt)):
+			}
+			continue
+		}
+		return nil
+	}
+	return lastErr
 }
 
 type MockWhatsAppSender struct {
@@ -139,6 +168,14 @@ func buildNotificationMessage(event models.NotificationEvent) string {
 		return fmt.Sprintf("Congratulations. You have been selected for %s.", jobTitle)
 	case "application_rejected":
 		return fmt.Sprintf("Your application for %s was not selected this time.", jobTitle)
+	case "referral_cashback_pending":
+		return "Your Rs 100 referral cashback is pending."
+	case "referral_cashback_paid":
+		return "Your Rs 100 referral cashback has been paid."
+	case "referral_cashback_failed":
+		return "Your referral cashback payout failed. Our team will review it."
+	case "status_otp":
+		return "Your application status OTP is ready. It expires in 5 minutes."
 	default:
 		return "You have a new update from BlueCollarJob."
 	}
@@ -150,4 +187,20 @@ func stringFromPayload(payload map[string]any, key, fallback string) string {
 		return fallback
 	}
 	return strings.TrimSpace(value)
+}
+
+func safeNotificationFailure(err error) string {
+	if err == nil {
+		return ""
+	}
+	reason := err.Error()
+	for _, marker := range []string{"Bearer ", "aadhaar", "otp", "password", "hash"} {
+		if strings.Contains(strings.ToLower(reason), strings.ToLower(marker)) {
+			return "provider delivery failed"
+		}
+	}
+	if len(reason) > 240 {
+		return reason[:240]
+	}
+	return reason
 }

@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
+	"time"
 
 	"bluecollarjob/internal/models"
 	"bluecollarjob/internal/repository"
@@ -31,6 +33,33 @@ func TestNotificationWorkerPendingBecomesSent(t *testing.T) {
 	}
 	if repo.sentID != "notification-1" {
 		t.Fatalf("expected notification marked sent, got %s", repo.sentID)
+	}
+}
+
+func TestNotificationWorkerRetriesTemporaryFailure(t *testing.T) {
+	ctx := context.Background()
+	repo := &workerNotificationRepository{
+		pending: []models.NotificationEvent{{
+			ID:        "notification-1",
+			EventType: "application_shortlisted",
+			Recipient: "+919876543210",
+			Payload:   []byte(`{"job_title":"Machine Operator"}`),
+			Status:    models.NotificationStatusPending,
+		}},
+	}
+	sender := &flakyWhatsAppSender{temporaryFailures: 1}
+	worker := NewNotificationWorkerService(repo, sender, NotificationWorkerConfig{
+		BatchSize:    10,
+		MaxAttempts:  2,
+		RetryBackoff: time.Millisecond,
+	})
+
+	result, err := worker.ProcessOnce(ctx, 10)
+	if err != nil {
+		t.Fatalf("process once: %v", err)
+	}
+	if result.Sent != 1 || sender.calls != 2 {
+		t.Fatalf("expected retry then sent, result=%#v calls=%d", result, sender.calls)
 	}
 }
 
@@ -107,4 +136,17 @@ func (r *workerNotificationRepository) MarkNotificationEventFailed(ctx context.C
 	r.failedID = id
 	r.failedReason = reason
 	return &models.NotificationEvent{ID: id, Status: models.NotificationStatusFailed, LastError: &reason}, nil
+}
+
+type flakyWhatsAppSender struct {
+	calls             int
+	temporaryFailures int
+}
+
+func (s *flakyWhatsAppSender) SendMessage(ctx context.Context, phoneNumber, message string) error {
+	s.calls++
+	if s.calls <= s.temporaryFailures {
+		return fmt.Errorf("%w: timeout", ErrTemporaryWhatsAppDelivery)
+	}
+	return nil
 }

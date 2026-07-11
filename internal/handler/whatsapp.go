@@ -11,12 +11,21 @@ import (
 )
 
 type WhatsAppHandler struct {
-	verifyToken string
-	bot         service.WhatsAppBotService
+	verifyToken           string
+	bot                   service.WhatsAppBotService
+	deduplicator          service.WhatsAppMessageDeduplicator
+	mediaDownloader       service.MediaDownloader
+	documentUploadEnabled bool
 }
 
-func NewWhatsAppHandler(verifyToken string, bot service.WhatsAppBotService) *WhatsAppHandler {
-	return &WhatsAppHandler{verifyToken: verifyToken, bot: bot}
+func NewWhatsAppHandler(verifyToken string, bot service.WhatsAppBotService, deduplicator service.WhatsAppMessageDeduplicator, mediaDownloader service.MediaDownloader, documentUploadEnabled bool) *WhatsAppHandler {
+	return &WhatsAppHandler{
+		verifyToken:           verifyToken,
+		bot:                   bot,
+		deduplicator:          deduplicator,
+		mediaDownloader:       mediaDownloader,
+		documentUploadEnabled: documentUploadEnabled,
+	}
 }
 
 func (h *WhatsAppHandler) VerifyWebhook(c *gin.Context) {
@@ -39,8 +48,35 @@ func (h *WhatsAppHandler) ReceiveWebhook(c *gin.Context) {
 
 	message, err := parseWhatsAppMessage(payload)
 	if err != nil {
+		if err == service.ErrNotFound {
+			c.JSON(http.StatusOK, gin.H{"ok": true, "ignored": true})
+			return
+		}
 		writeError(c, http.StatusBadRequest, "invalid_webhook_payload", err.Error())
 		return
+	}
+	if h.deduplicator != nil && message.MessageID != "" {
+		isNew, err := h.deduplicator.MarkProcessed(c.Request.Context(), message.MessageID)
+		if err != nil {
+			writeServiceError(c, err)
+			return
+		}
+		if !isNew {
+			c.JSON(http.StatusOK, gin.H{"ok": true, "duplicate": true})
+			return
+		}
+	}
+	if message.MediaRef != nil {
+		ref := safeMediaReference(*message.MediaRef)
+		if h.documentUploadEnabled && h.mediaDownloader != nil {
+			downloadedRef, err := h.mediaDownloader.DocumentRef(c.Request.Context(), *message.MediaRef)
+			if err != nil {
+				writeServiceError(c, err)
+				return
+			}
+			ref = downloadedRef
+		}
+		message.MediaRef = &ref
 	}
 
 	reply, err := h.bot.HandleIncomingMessage(c.Request.Context(), message)
@@ -59,7 +95,7 @@ func parseWhatsAppMessage(payload map[string]any) (service.IncomingWhatsAppMessa
 	if message, ok := parseMetaMessage(payload); ok {
 		return message, nil
 	}
-	return service.IncomingWhatsAppMessage{}, service.ErrInvalidInput
+	return service.IncomingWhatsAppMessage{}, service.ErrNotFound
 }
 
 func parseOpenWAMessage(payload map[string]any) (service.IncomingWhatsAppMessage, bool) {
@@ -79,10 +115,12 @@ func parseOpenWAMessage(payload map[string]any) (service.IncomingWhatsAppMessage
 	if mediaRef != "" {
 		mediaRefPtr = &mediaRef
 	}
+	messageID := firstNonEmptyString(payload, "id", "message_id")
 	return service.IncomingWhatsAppMessage{
 		PhoneNumber: phone,
 		Text:        text,
 		MessageType: messageType,
+		MessageID:   messageID,
 		MediaRef:    mediaRefPtr,
 	}, true
 }
@@ -119,6 +157,7 @@ func parseMetaMessage(payload map[string]any) (service.IncomingWhatsAppMessage, 
 				continue
 			}
 			phone := normalizeWebhookPhone(stringValue(messageMap["from"]))
+			messageID := stringValue(messageMap["id"])
 			messageType := stringValue(messageMap["type"])
 			text := ""
 			var mediaRef *string
@@ -137,17 +176,48 @@ func parseMetaMessage(payload map[string]any) (service.IncomingWhatsAppMessage, 
 					mediaRef = &ref
 				}
 			}
+			if interactivePayload, ok := messageMap["interactive"].(map[string]any); ok {
+				text = parseMetaInteractiveReply(interactivePayload)
+				if messageType == "" {
+					messageType = "interactive"
+				}
+			}
+			if buttonPayload, ok := messageMap["button"].(map[string]any); ok && text == "" {
+				text = firstNonEmptyString(buttonPayload, "payload", "text")
+				if messageType == "" {
+					messageType = "button"
+				}
+			}
 			if phone != "" {
+				if messageType == "" {
+					messageType = "text"
+				}
 				return service.IncomingWhatsAppMessage{
 					PhoneNumber: phone,
 					Text:        text,
 					MessageType: messageType,
+					MessageID:   messageID,
 					MediaRef:    mediaRef,
 				}, true
 			}
 		}
 	}
 	return service.IncomingWhatsAppMessage{}, false
+}
+
+func parseMetaInteractiveReply(payload map[string]any) string {
+	interactiveType := stringValue(payload["type"])
+	switch interactiveType {
+	case "button_reply":
+		if reply, ok := payload["button_reply"].(map[string]any); ok {
+			return firstNonEmptyString(reply, "id", "title")
+		}
+	case "list_reply":
+		if reply, ok := payload["list_reply"].(map[string]any); ok {
+			return firstNonEmptyString(reply, "id", "title", "description")
+		}
+	}
+	return ""
 }
 
 func firstNonEmptyString(payload map[string]any, keys ...string) string {
@@ -189,4 +259,15 @@ func normalizeWebhookPhone(phone string) string {
 		return ""
 	}
 	return "+" + cleaned
+}
+
+func safeMediaReference(mediaID string) string {
+	mediaID = strings.TrimSpace(mediaID)
+	if mediaID == "" {
+		return ""
+	}
+	if strings.Contains(mediaID, ":") {
+		return mediaID
+	}
+	return "wa-media:" + mediaID
 }

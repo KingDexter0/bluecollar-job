@@ -45,8 +45,12 @@ Required variables:
 - `REDIS_PASSWORD`: Redis password, empty for local development
 - `REDIS_DB`: Redis database index
 - `JWT_SECRET`: secret used later for signed auth tokens
-- `WHATSAPP_VERIFY_TOKEN`: reserved for future WhatsApp webhook verification
-- `WHATSAPP_ACCESS_TOKEN`: reserved for future WhatsApp API access
+- `WHATSAPP_PROVIDER`: `mock` for local development or `meta` for Meta WhatsApp Cloud API
+- `WHATSAPP_VERIFY_TOKEN`: webhook verification token
+- `WHATSAPP_ACCESS_TOKEN`: Meta access token when `WHATSAPP_PROVIDER=meta`
+- `WHATSAPP_PHONE_NUMBER_ID`: Meta WhatsApp phone number ID
+- `WHATSAPP_BUSINESS_ACCOUNT_ID`: Meta WhatsApp Business Account ID
+- `WHATSAPP_GRAPH_API_VERSION`: Meta Graph API version, for example `v20.0`
 - `AADHAAR_GATEWAY_PROVIDER`: Aadhaar verification provider, defaults to `mock`
 - `AADHAAR_GATEWAY_BASE_URL`: authorized Aadhaar/e-KYC gateway base URL
 - `AADHAAR_GATEWAY_CLIENT_ID`: authorized gateway client id
@@ -382,7 +386,7 @@ docker compose -f docker-compose.prod.yml build
 
 ## Known Limitations
 
-- Real WhatsApp/OpenWA/Meta integration is pending.
+- Meta WhatsApp Cloud API integration is implemented, but live credentials, approved templates, and opt-in review are still required.
 - Real Aadhaar/e-KYC integration is pending.
 - Real UPI/payout integration is pending.
 - Production deployment to Linode/Kubernetes is pending.

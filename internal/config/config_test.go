@@ -32,9 +32,13 @@ func TestProductionValidationAcceptsRequiredSettings(t *testing.T) {
 			Addr:     "redis:6379",
 			Password: "redis-password",
 		},
-		JWTSecret:           "this-is-a-long-random-production-secret",
-		AdminToken:          "this-is-a-long-random-admin-token",
-		WhatsAppVerifyToken: "whatsapp-verify-token",
+		JWTSecret:  "this-is-a-long-random-production-secret",
+		AdminToken: "this-is-a-long-random-admin-token",
+		WhatsApp: WhatsAppConfig{
+			Provider:        "mock",
+			VerifyToken:     "whatsapp-verify-token",
+			GraphAPIVersion: "v20.0",
+		},
 		ObjectStorage: ObjectStorageConfig{
 			Bucket: "bluecollar-documents",
 		},
